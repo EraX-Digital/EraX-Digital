@@ -1,0 +1,35 @@
+{
+  "name": "erax",
+  "private": true,
+  "type": "module",
+  "version": "0.2.0",
+  "description": "EraX Digital SocialFi platform",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "env:dev": "node scripts/write-dev-env.mjs",
+    "dev": "pnpm --parallel --filter @erax/api --filter @erax/indexer --filter @erax/web --filter @erax/admin dev",
+    "build": "pnpm typecheck && pnpm --filter @erax/web build && pnpm --filter @erax/admin build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "db:migrate": "pnpm --filter @erax/database migrate",
+    "db:seed": "pnpm --filter @erax/database seed",
+    "db:verify": "pnpm --filter @erax/database verify",
+    "db:verify:embedded": "pnpm --filter @erax/database verify:embedded"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "@node-rs/argon2"]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2",
+    "vitest": "^3.2.4"
+  }
+}

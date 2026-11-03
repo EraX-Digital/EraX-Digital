@@ -1,0 +1,31 @@
+{
+  "name": "@erax/database",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx src/cli.ts",
+    "seed": "tsx src/seed.ts",
+    "verify": "tsx src/verify-cli.ts",
+    "verify:embedded": "tsx src/embedded-verify.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@erax/auth": "workspace:*",
+    "@erax/config": "workspace:*",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "@types/pg": "^8.15.6",
+    "embedded-postgres": "16.15.0-beta.19",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
