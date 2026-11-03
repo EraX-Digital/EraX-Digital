@@ -39,9 +39,7 @@ pnpm is `10.15.0`, from the root `packageManager` field. Node.js is 22 or newer,
 | Output | Next.js default (`.next`) |
 | Production domains | `app.erax.digital`, and `erax.digital` redirected to it |
 
-`apps/web/vercel.json` contains the install and build commands above. Vercel runs those commands for a project whose root directory is `apps/web`. pnpm walks up to the workspace root, so the filter still resolves `@erax/ui`, `@erax/api-client`, and `@erax/shared-types`.
-
-Do not import the repository root as a single Vercel project. There is no root `vercel.json` for that reason.
+`apps/web/vercel.json` contains those commands for a project whose root directory is `apps/web`. The repository root also has `vercel.json`. Vercel reads that file when you import the repository and leave the root directory empty. It installs with pnpm and builds `@erax/web`. The web build writes `.next` at the repository root in that case, which is where the Next.js builder looks. There is no `vercel.js`. Vercel does not read that filename.
 
 The web app and the product are the same Next.js app. `/` is the entry page and `/app` is EraX Social. `WEB_ORIGIN` is one origin, so the canonical browser origin is `https://app.erax.digital`. In the Vercel domain settings, add `erax.digital` to this project and redirect it to `https://app.erax.digital`. A separate marketing application is not in the repository.
 
@@ -50,7 +48,7 @@ Required project environment variables:
 - `NEXT_PUBLIC_API_URL` = `https://api.erax.digital` for production
 - For preview deployments, set `NEXT_PUBLIC_API_URL` to the preview API host, not the production API
 
-`NEXT_PUBLIC_API_URL` is inlined at build time. When it is unset, the app calls `https://api.erax.digital`. A Vercel build still fails if the variable is explicitly set to localhost or to a non-HTTPS URL. Set Node.js 22.x on the project. The project Root Directory must be `apps/web` for this app and `apps/admin` for the admin app. Importing the repository root does not deploy either Next.js app.
+`NEXT_PUBLIC_API_URL` is inlined at build time. When it is unset, the app calls `https://api.erax.digital`. A Vercel build still fails if the variable is explicitly set to localhost or to a non-HTTPS URL. Set Node.js 22.x on the project. Import the repository with an empty root directory to deploy EraX Social from the root `vercel.json`. For the admin app, create a second project and set its root directory to `apps/admin`.
 
 Do not add `DATABASE_URL`, `SESSION_COOKIE_SECRET`, SMTP passwords, or S3 keys to this project.
 
