@@ -10,7 +10,7 @@ Status values: `not run`, `passed`, `failed`.
 
 - [ ] Clean checkout: `pnpm install --frozen-lockfile`, then `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm --dir apps/web build`, and `pnpm --dir apps/admin build`. Current machine: install and the two app builds passed after dependencies were already present. A second clean-checkout install was not repeated.
 - [ ] Production API process fails startup when `DATABASE_DRIVER=pglite`, `MEDIA_DRIVER=filesystem`, `EMAIL_MODE=outbox`, `RATE_LIMIT_STORE=memory`, or `COOKIE_SECURE=false`. Covered by `packages/config/src/index.test.ts` with a fixture, not by a deployed process.
-- [ ] Vercel preview build of `apps/web` fails when `NEXT_PUBLIC_API_URL` is not an `https` URL. The guard is unit-tested. A Vercel build was not run.
+- [ ] Vercel project Root Directory is `apps/web` or `apps/admin`, not the repository root. An unset `NEXT_PUBLIC_API_URL` builds against `https://api.erax.digital`. An explicit localhost URL fails the build.
 - [ ] Preview and production Vercel projects use separate `NEXT_PUBLIC_API_URL` values. Not run.
 
 ## Database

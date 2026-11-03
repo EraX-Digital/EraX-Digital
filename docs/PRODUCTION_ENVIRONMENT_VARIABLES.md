@@ -12,7 +12,7 @@ Read by Next.js at build time and inlined into the browser. Set them on the Verc
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | `https://api.erax.digital` | `http://127.0.0.1:4000` in `apps/web/.env.development` and `apps/admin/.env.development` |
 
-A Vercel preview build must use the preview API URL. `publicApiUrl()` rejects a missing, non-HTTPS, or localhost value when `VERCEL_ENV` is `production` or `preview`.
+A Vercel preview should set this to the preview API. If it is unset, the built app calls `https://api.erax.digital`. An explicit localhost or non-HTTPS value fails the Vercel build.
 
 ## Backend-only secrets
 

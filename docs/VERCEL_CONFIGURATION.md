@@ -9,7 +9,7 @@ These commands were run from a checkout that already had dependencies installed.
 From `apps/web`:
 
 ```text
-pnpm install --frozen-lockfile --filter @erax/web...
+pnpm install --frozen-lockfile
 pnpm build
 ```
 
@@ -18,7 +18,7 @@ pnpm build
 From `apps/admin`:
 
 ```text
-pnpm install --frozen-lockfile --filter @erax/admin...
+pnpm install --frozen-lockfile
 pnpm build
 ```
 
@@ -34,7 +34,7 @@ pnpm is `10.15.0`, from the root `packageManager` field. Node.js is 22 or newer,
 | --- | --- |
 | Root directory | `apps/web` |
 | Framework | Next.js |
-| Install command | `pnpm install --frozen-lockfile --filter @erax/web...` |
+| Install command | `pnpm install --frozen-lockfile` |
 | Build command | `pnpm build` |
 | Output | Next.js default (`.next`) |
 | Production domains | `app.erax.digital`, and `erax.digital` redirected to it |
@@ -50,7 +50,7 @@ Required project environment variables:
 - `NEXT_PUBLIC_API_URL` = `https://api.erax.digital` for production
 - For preview deployments, set `NEXT_PUBLIC_API_URL` to the preview API host, not the production API
 
-`NEXT_PUBLIC_API_URL` is inlined at build time. A production or preview build (`VERCEL_ENV=production` or `VERCEL_ENV=preview`) fails if the value is missing, not `https`, or points at localhost. A local `next build` does not set `VERCEL_ENV`, so it still builds.
+`NEXT_PUBLIC_API_URL` is inlined at build time. When it is unset, the app calls `https://api.erax.digital`. A Vercel build still fails if the variable is explicitly set to localhost or to a non-HTTPS URL. Set Node.js 22.x on the project. The project Root Directory must be `apps/web` for this app and `apps/admin` for the admin app. Importing the repository root does not deploy either Next.js app.
 
 Do not add `DATABASE_URL`, `SESSION_COOKIE_SECRET`, SMTP passwords, or S3 keys to this project.
 
@@ -60,7 +60,7 @@ Do not add `DATABASE_URL`, `SESSION_COOKIE_SECRET`, SMTP passwords, or S3 keys t
 | --- | --- |
 | Root directory | `apps/admin` |
 | Framework | Next.js |
-| Install command | `pnpm install --frozen-lockfile --filter @erax/admin...` |
+| Install command | `pnpm install --frozen-lockfile` |
 | Build command | `pnpm build` |
 | Output | Next.js default (`.next`) |
 | Production domain | `admin.erax.digital` |

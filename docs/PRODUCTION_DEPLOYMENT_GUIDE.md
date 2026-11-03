@@ -14,7 +14,7 @@ The application is not production-ready. Local tests passed, and that is not suf
 | Localhost origins and URLs | `.env.example`, `apps/web/.env.development`, `apps/admin/.env.development` | Production origins must be `https`. Database, Valkey, and SMTP hosts must not be localhost. |
 | In-process rate limit | `RATE_LIMIT_STORE=memory` | Rejected. Valkey is required and was not connected here. |
 | Development administrator | `pnpm db:seed` | Refuses `NODE_ENV=production` and any non-local database host. There is no login bypass. |
-| Fallback API URL | `http://127.0.0.1:4000` | Used only when `NEXT_PUBLIC_API_URL` is unset and `VERCEL_ENV` is not `preview` or `production`. |
+| Fallback API URL | `http://127.0.0.1:4000` in local development files | When `NEXT_PUBLIC_API_URL` is unset, the built app calls `https://api.erax.digital`. An explicit localhost value fails a Vercel build. |
 
 Wallet signature login still returns HTTP 501. Bodies that contain a private key, seed, or mnemonic are rejected. The indexer does not connect to a chain.
 
