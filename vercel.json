@@ -1,6 +1,45 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "ERAX_VERCEL_ROOT=1 pnpm --filter @erax/web build"
+  "services": {
+    "app": {
+      "root": ".",
+      "framework": "nextjs"
+    },
+    "admin": {
+      "root": "apps/admin",
+      "framework": "nextjs"
+    },
+    "web": {
+      "root": "apps/web",
+      "framework": "nextjs"
+    },
+    "api": {
+      "root": "services/api",
+      "framework": "fastify"
+    },
+    "indexer": {
+      "root": "services/indexer",
+      "framework": "fastify"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/admin/(.*)",
+      "destination": {
+        "service": "admin"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "app"
+      }
+    }
+  ]
 }
