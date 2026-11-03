@@ -22,7 +22,15 @@
     "db:verify:embedded": "pnpm --filter @erax/database verify:embedded"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "@node-rs/argon2"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@node-rs/argon2",
+      "@embedded-postgres/windows-x64",
+      "@embedded-postgres/linux-x64",
+      "@embedded-postgres/linux-arm64",
+      "@embedded-postgres/darwin-x64",
+      "@embedded-postgres/darwin-arm64"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

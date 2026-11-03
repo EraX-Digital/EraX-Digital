@@ -5,6 +5,7 @@ import { config as loadDotenv } from 'dotenv'
 import { eq } from 'drizzle-orm'
 import { createDatabase, migrateDatabase } from './client'
 import { auditLogs, profiles, users } from './schema'
+import { assertLocalSeedTarget } from './target'
 
 const rootEnv = fileURLToPath(new URL('../../../.env', import.meta.url))
 loadDotenv({ path: rootEnv })
@@ -12,6 +13,9 @@ loadDotenv({ path: rootEnv })
 const env = loadEnv()
 if (env.NODE_ENV === 'production') {
   throw new Error('Refusing to seed a production database')
+}
+for (const candidate of [env.DATABASE_URL, env.DATABASE_MIGRATION_URL]) {
+  if (candidate.startsWith('postgres')) assertLocalSeedTarget(candidate)
 }
 
 const email = process.env.DEV_ADMIN_EMAIL?.trim().toLowerCase()

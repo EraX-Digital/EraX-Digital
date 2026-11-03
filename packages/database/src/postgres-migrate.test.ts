@@ -1,23 +1,17 @@
-import pg from 'pg'
 import { describe, expect, it } from 'vitest'
-import { migrate, type SqlExecutor } from './migrate'
+import { verifyPostgres } from './verify'
 
 const databaseUrl = process.env.DATABASE_URL
 
 describe.skipIf(!databaseUrl)('PostgreSQL server migrations', () => {
-  it('applies the foundation migration to a real PostgreSQL database', async () => {
-    const pool = new pg.Pool({ connectionString: databaseUrl })
-    const executor: SqlExecutor = {
-      exec: (sql) => pool.query(sql),
-      query: async (sql) => {
-        const result = await pool.query<Record<string, unknown>>(sql)
-        return { rows: result.rows }
-      },
-    }
-    const first = await migrate(executor)
-    const second = await migrate(executor)
-    expect(second.applied).toEqual([])
-    expect(first.applied.length + first.skipped.length).toBeGreaterThan(0)
-    await pool.end()
+  it('verifies migrations, constraints, and rollback on a real PostgreSQL database', async () => {
+    const result = await verifyPostgres(databaseUrl ?? '', {
+      ssl: process.env.DATABASE_SSL === 'require' ? 'require' : 'disable',
+    })
+    expect(result.transactionRollback).toBe('passed')
+    expect(result.uniqueViolation).toBe('passed')
+    expect(result.foreignKeyViolation).toBe('passed')
+    expect(result.foreignKeys).toBeGreaterThan(0)
+    expect(result.applied.length + result.skipped.length).toBeGreaterThan(0)
   })
 })

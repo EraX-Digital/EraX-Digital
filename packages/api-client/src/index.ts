@@ -10,6 +10,7 @@ import {
   type PublicProfileCard,
   type PublicUser,
 } from '@erax/shared-types'
+export { publicApiUrl } from './public-url'
 
 export class ApiClientError extends Error {
   constructor(
@@ -173,20 +174,14 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
       }>('/api/v1/admin/audit-logs')
     },
     socialProfile(username: string) {
-      return request<PublicProfileCard>(
-        `/api/v1/profiles/${encodeURIComponent(username)}`,
-      )
+      return request<PublicProfileCard>(`/api/v1/profiles/${encodeURIComponent(username)}`)
     },
     feed(kind: 'following' | 'discover', cursor?: string) {
       const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
-      return request<Page<PostCard>>(
-        `/api/v1/feeds/${kind}${query}`,
-      )
+      return request<Page<PostCard>>(`/api/v1/feeds/${kind}${query}`)
     },
     profilePosts(username: string) {
-      return request<Page<PostCard>>(
-        `/api/v1/profiles/${encodeURIComponent(username)}/posts`,
-      )
+      return request<Page<PostCard>>(`/api/v1/profiles/${encodeURIComponent(username)}/posts`)
     },
     post(id: string) {
       return request<PostCard>(`/api/v1/posts/${id}`)
@@ -221,9 +216,7 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
       })
     },
     comments(id: string) {
-      return request<Page<CommentCard>>(
-        `/api/v1/posts/${id}/comments`,
-      )
+      return request<Page<CommentCard>>(`/api/v1/posts/${id}/comments`)
     },
     comment(id: string, body: string, parentId?: string) {
       return request<CommentCard>(`/api/v1/posts/${id}/comments`, {
@@ -233,9 +226,7 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
       })
     },
     bookmarks() {
-      return request<Page<PostCard>>(
-        '/api/v1/bookmarks',
-      )
+      return request<Page<PostCard>>('/api/v1/bookmarks')
     },
     follow(username: string, active: boolean) {
       return active
@@ -293,10 +284,21 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
         ownerUsername: string | null
       }>(`/api/v1/communities/${encodeURIComponent(slug)}`)
     },
-    createCommunity(input: { name: string; description?: string; visibility?: 'public' | 'private' }) {
-      return request<{ slug: string }>('/api/v1/communities', { method: 'POST', body: input, csrf: true })
+    createCommunity(input: {
+      name: string
+      description?: string
+      visibility?: 'public' | 'private'
+    }) {
+      return request<{ slug: string }>('/api/v1/communities', {
+        method: 'POST',
+        body: input,
+        csrf: true,
+      })
     },
-    updateCommunity(slug: string, input: { name?: string; description?: string; visibility?: 'public' | 'private' }) {
+    updateCommunity(
+      slug: string,
+      input: { name?: string; description?: string; visibility?: 'public' | 'private' },
+    ) {
       return request(`/api/v1/communities/${encodeURIComponent(slug)}`, {
         method: 'PATCH',
         body: input,
@@ -304,7 +306,10 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
       })
     },
     joinCommunity(slug: string) {
-      return request(`/api/v1/communities/${encodeURIComponent(slug)}/join`, { method: 'POST', csrf: true })
+      return request(`/api/v1/communities/${encodeURIComponent(slug)}/join`, {
+        method: 'POST',
+        csrf: true,
+      })
     },
     leaveCommunity(slug: string) {
       return request(`/api/v1/communities/${encodeURIComponent(slug)}/membership`, {
@@ -313,9 +318,7 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
       })
     },
     communityPosts(slug: string) {
-      return request<Page<PostCard>>(
-        `/api/v1/communities/${encodeURIComponent(slug)}/posts`,
-      )
+      return request<Page<PostCard>>(`/api/v1/communities/${encodeURIComponent(slug)}/posts`)
     },
     communityMembers(slug: string) {
       return request<{ items: Array<{ username: string; displayName: string; role: string }> }>(
@@ -358,7 +361,13 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
     },
     messages(id: string) {
       return request<{
-        items: Array<{ id: string; body: string; createdAt: string; mine: boolean; sender: { username: string } }>
+        items: Array<{
+          id: string
+          body: string
+          createdAt: string
+          mine: boolean
+          sender: { username: string }
+        }>
         nextCursor: string | null
       }>(`/api/v1/conversations/${id}/messages`)
     },
@@ -430,7 +439,11 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
     uploadCover(file: File) {
       const form = new FormData()
       form.set('file', file)
-      return request<{ coverUrl: string }>('/api/v1/profile/cover', { method: 'POST', form, csrf: true })
+      return request<{ coverUrl: string }>('/api/v1/profile/cover', {
+        method: 'POST',
+        form,
+        csrf: true,
+      })
     },
   }
 }

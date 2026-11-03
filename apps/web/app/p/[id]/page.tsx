@@ -1,8 +1,9 @@
+import { publicApiUrl } from '@erax/api-client'
 import type { PostCard } from '@erax/shared-types'
 
 export default async function PublicPostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:4000'
+  const base = publicApiUrl()
   const response = await fetch(`${base}/api/v1/posts/${id}`, { cache: 'no-store' })
   if (!response.ok) {
     return (
@@ -20,7 +21,11 @@ export default async function PublicPostPage({ params }: { params: Promise<{ id:
       <h1>{post.author.displayName}</h1>
       <p>@{post.author.username}</p>
       <p>{post.body}</p>
-      {post.linkUrl ? <p><a href={post.linkUrl}>{post.linkUrl}</a></p> : null}
+      {post.linkUrl ? (
+        <p>
+          <a href={post.linkUrl}>{post.linkUrl}</a>
+        </p>
+      ) : null}
       <p>
         <a href="/login">Sign in to reply</a>
       </p>

@@ -116,7 +116,13 @@ const schema = z
     }
 
     if (value.MEDIA_DRIVER === 's3') {
-      for (const key of ['S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const) {
+      for (const key of [
+        'S3_ENDPOINT',
+        'S3_REGION',
+        'S3_BUCKET',
+        'S3_ACCESS_KEY_ID',
+        'S3_SECRET_ACCESS_KEY',
+      ] as const) {
         if (value[key].length === 0) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
@@ -179,7 +185,10 @@ const schema = z
             'Production requires SMTP email delivery. The development outbox is not a mail server.',
         })
       }
-      if (/localhost|127\.0\.0\.1/i.test(value.SMTP_HOST) || value.SMTP_FROM.includes('localhost')) {
+      if (
+        /localhost|127\.0\.0\.1/i.test(value.SMTP_HOST) ||
+        value.SMTP_FROM.includes('localhost')
+      ) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['SMTP_HOST'],
@@ -197,7 +206,8 @@ const schema = z
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['MEDIA_DRIVER'],
-          message: 'Production media must use S3-compatible object storage. Local disk is ephemeral.',
+          message:
+            'Production media must use S3-compatible object storage. Local disk is ephemeral.',
         })
       }
       if (value.ENABLE_API_DOCS) {

@@ -181,7 +181,8 @@ export async function verifyPostgres(
       foreignKeyRejected = error instanceof Error && 'code' in error && error.code === '23503'
     }
     await client.query('ROLLBACK')
-    if (!foreignKeyRejected) throw new Error('The profile foreign key did not reject an unknown user')
+    if (!foreignKeyRejected)
+      throw new Error('The profile foreign key did not reject an unknown user')
 
     const roleRow = role.rows[0]
     return {

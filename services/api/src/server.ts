@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { createAccountService, type AccountService } from './accounts'
 import { readOutbox, type EmailSender } from './email'
 import { ApiError, errorBody } from './errors'
+import { publicCheckDetail } from './public-error'
 import { sniffMedia } from './media-bytes'
 import type { MediaStorage } from './media'
 import { registerSocialRoutes } from './social-routes'
@@ -112,7 +113,7 @@ export async function buildServer(deps: ServerDeps) {
       level: env.NODE_ENV === 'test' ? 'silent' : 'info',
       redact: ['req.headers.cookie', 'req.headers.authorization', `req.headers["${CSRF_HEADER}"]`],
     },
-    trustProxy: false,
+    trustProxy: env.TRUST_PROXY,
     bodyLimit: 25_000_000,
   })
 
@@ -135,7 +136,10 @@ export async function buildServer(deps: ServerDeps) {
         },
       })
     }
-    request.log.error({ err: error }, 'unhandled error')
+    request.log.error(
+      { name: error instanceof Error ? error.name : 'Error' },
+      publicCheckDetail(error, 'unhandled error'),
+    )
     return reply.status(known.statusCode && known.statusCode >= 400 ? known.statusCode : 500).send({
       error: { code: 'internal_error', message: 'Internal server error', details: null },
     })
@@ -185,22 +189,27 @@ export async function buildServer(deps: ServerDeps) {
     secure: env.COOKIE_SECURE,
   }
 
+  const sessionCookie = { ...cookieBase, httpOnly: true }
+  const csrfCookie = {
+    ...cookieBase,
+    httpOnly: false,
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {}),
+  }
+
   function setSessionCookies(reply: FastifyReply, sessionToken: string, csrfToken: string) {
     reply.setCookie(SESSION_COOKIE, sessionToken, {
-      ...cookieBase,
-      httpOnly: true,
+      ...sessionCookie,
       maxAge: env.SESSION_TTL_SECONDS,
     })
     reply.setCookie(CSRF_COOKIE, csrfToken, {
-      ...cookieBase,
-      httpOnly: false,
+      ...csrfCookie,
       maxAge: env.SESSION_TTL_SECONDS,
     })
   }
 
   function clearSessionCookies(reply: FastifyReply) {
-    reply.clearCookie(SESSION_COOKIE, { ...cookieBase, httpOnly: true })
-    reply.clearCookie(CSRF_COOKIE, { ...cookieBase, httpOnly: false })
+    reply.clearCookie(SESSION_COOKIE, sessionCookie)
+    reply.clearCookie(CSRF_COOKIE, csrfCookie)
   }
 
   async function requireSession(request: FastifyRequest, requireCsrf: boolean) {
@@ -233,7 +242,7 @@ export async function buildServer(deps: ServerDeps) {
         checks.database = {
           ok: false,
           required: true,
-          detail: error instanceof Error ? error.message : 'Database check failed',
+          detail: publicCheckDetail(error, 'Database check failed'),
         }
       }
 
@@ -245,7 +254,7 @@ export async function buildServer(deps: ServerDeps) {
           checks.valkey = {
             ok: false,
             required: true,
-            detail: error instanceof Error ? error.message : 'Valkey check failed',
+            detail: publicCheckDetail(error, 'Valkey check failed'),
           }
         }
       } else {

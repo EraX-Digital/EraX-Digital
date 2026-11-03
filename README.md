@@ -42,7 +42,7 @@ $env:DEV_ADMIN_PASSWORD="replace-this-password-1"
 pnpm db:seed
 ```
 
-The seed refuses to run when `NODE_ENV=production`. It is a development fixture, not a production user.
+The seed refuses to run when `NODE_ENV=production` and when the database host is not local. It creates one development administrator. It does not create posts, messages, communities, or statistics.
 
 ## Email
 
@@ -57,7 +57,19 @@ pnpm test
 pnpm build
 ```
 
-`pnpm test` applies migrations to embedded PGlite. If `DATABASE_URL` points at PostgreSQL, the suite also applies them there.
+`pnpm test` applies migrations to embedded PGlite. The PostgreSQL server test runs only when `DATABASE_URL` is set. Production deployment is documented separately and is not ready for a public launch.
+
+## Production preparation
+
+The production guides are:
+
+- `docs/PRODUCTION_DEPLOYMENT_GUIDE.md`
+- `docs/PRODUCTION_DATABASE_GUIDE.md`
+- `docs/VERCEL_CONFIGURATION.md`
+- `docs/PRODUCTION_ENVIRONMENT_VARIABLES.md`
+- `docs/PRODUCTION_READINESS_CHECKLIST.md`
+
+Web and admin are prepared as two Vercel projects. The API and indexer stay on a long-running Node.js host. Production rejects PGlite, local media disk, the email outbox, and the in-process rate limiter. No deployment, DNS change, or production migration has been run.
 
 ## Security notes for this phase
 

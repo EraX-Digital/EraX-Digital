@@ -18,19 +18,27 @@ export type StoredObject = {
 }
 
 export type MediaStorage = {
-  driver: 'filesystem'
+  driver: 'filesystem' | 's3'
   put(key: string, bytes: Buffer): Promise<void>
   read(key: string): Promise<StoredObject | null>
   remove(key: string): Promise<void>
+}
+
+export function assertMediaKey(key: string): void {
+  if (!KEY_PREFIX.test(key) || key.includes('..') || key.includes('\\') || path.isAbsolute(key)) {
+    throw new Error('Invalid media key')
+  }
+}
+
+export function mediaContentType(key: string): string {
+  return CONTENT_TYPES[path.extname(key).toLowerCase()] ?? 'application/octet-stream'
 }
 
 export function createFilesystemStorage(root: string): MediaStorage {
   const resolvedRoot = path.resolve(root)
 
   function resolveKey(key: string): string {
-    if (!KEY_PREFIX.test(key) || key.includes('..') || path.isAbsolute(key)) {
-      throw new Error('Invalid media key')
-    }
+    assertMediaKey(key)
     const full = path.resolve(resolvedRoot, key)
     if (!full.startsWith(resolvedRoot + path.sep)) {
       throw new Error('Invalid media key')
@@ -49,8 +57,7 @@ export function createFilesystemStorage(root: string): MediaStorage {
       const full = resolveKey(key)
       try {
         const bytes = await readFile(full)
-        const contentType =
-          CONTENT_TYPES[path.extname(full).toLowerCase()] ?? 'application/octet-stream'
+        const contentType = mediaContentType(full)
         return { bytes, contentType }
       } catch (error) {
         if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null

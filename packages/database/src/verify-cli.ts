@@ -13,7 +13,10 @@ if (env.DATABASE_DRIVER !== 'postgres') {
 }
 
 const connectionString = env.DATABASE_MIGRATION_URL || env.DATABASE_URL
-const target = assertRemoteMigrationApproved(connectionString, process.env.ERAX_APPROVE_REMOTE_MIGRATE)
+const target = assertRemoteMigrationApproved(
+  connectionString,
+  process.env.ERAX_APPROVE_REMOTE_MIGRATE,
+)
 console.error(`Verifying ${target.host}/${target.database}. No tables will be dropped.`)
 const result = await verifyPostgres(connectionString, { ssl: env.DATABASE_SSL, max: 2 })
 console.log(JSON.stringify(result, null, 2))

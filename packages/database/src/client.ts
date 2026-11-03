@@ -20,9 +20,23 @@ export type DatabaseRuntime = {
 
 type PgResult = { rows: Record<string, unknown>[] }
 
-export async function createDatabase(
-  env: Pick<Env, 'DATABASE_DRIVER' | 'DATABASE_URL' | 'PGLITE_DIR'>,
-): Promise<DatabaseRuntime> {
+type DatabaseSettings = Pick<
+  Env,
+  'DATABASE_DRIVER' | 'DATABASE_URL' | 'PGLITE_DIR' | 'DATABASE_POOL_MAX' | 'DATABASE_SSL'
+>
+
+export function postgresPoolConfig(
+  env: Pick<DatabaseSettings, 'DATABASE_URL' | 'DATABASE_POOL_MAX' | 'DATABASE_SSL'>,
+): pg.PoolConfig {
+  return {
+    connectionString: env.DATABASE_URL,
+    max: env.DATABASE_POOL_MAX,
+    application_name: 'erax',
+    ...(env.DATABASE_SSL === 'require' ? { ssl: { rejectUnauthorized: true } } : {}),
+  }
+}
+
+export async function createDatabase(env: DatabaseSettings): Promise<DatabaseRuntime> {
   if (env.DATABASE_DRIVER === 'pglite') {
     let client: PGlite
     if (env.PGLITE_DIR === ':memory:') {
@@ -51,7 +65,7 @@ export async function createDatabase(
     }
   }
 
-  const pool = new Pool({ connectionString: env.DATABASE_URL })
+  const pool = new Pool(postgresPoolConfig(env))
   const db = drizzle(pool, { schema })
   const executor: SqlExecutor = {
     exec: (sql) => pool.query(sql),

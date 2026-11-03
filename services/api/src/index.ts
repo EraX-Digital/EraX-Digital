@@ -1,17 +1,18 @@
 import { fileURLToPath } from 'node:url'
-import { loadEnv, resolveRepoPath } from '@erax/config'
+import { loadEnv, resolveRepoPath, shouldAutoMigrate } from '@erax/config'
 import { createDatabase, migrateDatabase } from '@erax/database'
 import { config as loadDotenv } from 'dotenv'
 import { Redis } from 'ioredis'
 import { createOutboxSender, createSmtpSender } from './email'
 import { createFilesystemStorage } from './media'
+import { createS3Storage } from './media-s3'
 import { buildServer } from './server'
 
 loadDotenv({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) })
 
 const env = loadEnv()
 const runtime = await createDatabase(env)
-await migrateDatabase(runtime)
+if (shouldAutoMigrate(env)) await migrateDatabase(runtime)
 
 let redis: Redis | undefined
 async function checkValkey() {
@@ -49,7 +50,17 @@ const app = await buildServer({
   checkDatabase: () => runtime.ping(),
   checkValkey,
   email,
-  media: createFilesystemStorage(resolveRepoPath(env.MEDIA_ROOT)),
+  media:
+    env.MEDIA_DRIVER === 's3'
+      ? createS3Storage({
+          endpoint: env.S3_ENDPOINT,
+          region: env.S3_REGION,
+          bucket: env.S3_BUCKET,
+          accessKeyId: env.S3_ACCESS_KEY_ID,
+          secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+          forcePathStyle: env.S3_FORCE_PATH_STYLE,
+        })
+      : createFilesystemStorage(resolveRepoPath(env.MEDIA_ROOT)),
   redis,
 })
 
