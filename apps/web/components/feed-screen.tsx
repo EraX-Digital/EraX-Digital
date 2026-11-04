@@ -75,13 +75,18 @@ export function FeedScreen({
         const uploaded = await api.uploadPostMedia(file)
         mediaIds.push(uploaded.id)
       }
-      await api.createPost({
+      const created = await api.createPost({
         body,
         linkUrl: link.trim() || null,
         visibility: String(form.get('visibility') || 'public') as 'public' | 'followers' | 'community',
         communityId,
         mediaIds,
       })
+      const pollOptions = [String(form.get('pollA') ?? ''), String(form.get('pollB') ?? '')]
+        .map((option) => option.trim())
+        .filter(Boolean)
+      if (pollOptions.length === 1) throw new ApiClientError(400, 'invalid_poll', 'Add a second poll option, or leave both blank')
+      if (pollOptions.length === 2) await api.attachPoll(created.id, pollOptions)
       formElement.reset()
       setNotice('Post published.')
       await load()
@@ -117,6 +122,8 @@ export function FeedScreen({
           <h2>{kind === 'community' ? 'Post to this community' : 'Create a post'}</h2>
           <TextArea label="Text" name="body" rows={4} maxLength={2000} />
           <TextField label="Link" name="linkUrl" placeholder="https://" />
+          <TextField label="Poll option 1" name="pollA" maxLength={80} />
+          <TextField label="Poll option 2" name="pollB" maxLength={80} />
           <label className="erax-field">
             <span>Up to 4 images, or one MP4</span>
             <input name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4" multiple />

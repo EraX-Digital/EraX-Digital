@@ -22,6 +22,7 @@ describe('migrations', () => {
       '0003_wallet',
       '0004_solana_programs',
       '0005_socialfi',
+      '0006_socialfi_product',
     ])
     expect(second.applied).toEqual([])
     expect(second.skipped).toEqual([
@@ -30,6 +31,7 @@ describe('migrations', () => {
       '0003_wallet',
       '0004_solana_programs',
       '0005_socialfi',
+      '0006_socialfi_product',
     ])
 
     const tables = await client.query<{ tablename: string }>(

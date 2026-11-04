@@ -16,6 +16,7 @@ const links = [
   ['/app/messages', 'Messages'],
   ['/app/notifications', 'Notifications'],
   ['/app/bookmarks', 'Bookmarks'],
+  ['/app/studio', 'Creator Studio'],
   ['/app/search', 'Search'],
 ]
 
@@ -26,6 +27,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   const [error, setError] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
   const [messages, setMessages] = useState(0)
+  const [topics, setTopics] = useState<Array<{ tag: string; posts: number }>>([])
+  const [creators, setCreators] = useState<Array<{ username: string; displayName: string; followers: number }>>([])
 
   useEffect(() => {
     let active = true
@@ -54,6 +57,13 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
       .then((summary) => {
         setUnread(summary.unread)
         setMessages(summary.unreadMessages)
+      })
+      .catch(() => undefined)
+    api
+      .discovery()
+      .then((result) => {
+        setTopics(result.topics)
+        setCreators(result.creators)
       })
       .catch(() => undefined)
   }, [session])
@@ -122,6 +132,28 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             <a href={`/app/u/${session.profile.username}`}>@{session.profile.username}</a>
           </p>
           <p className="erax-muted">Connect. Create. Own.</p>
+        </section>
+        <section className="erax-card">
+          <h2>Topics</h2>
+          <p className="erax-muted">Public hashtags from the last 7 days, ordered by post count.</p>
+          {topics.length === 0 ? <p className="erax-muted">No hashtags in that window.</p> : null}
+          <ul className="erax-list">
+            {topics.map((topic) => (
+              <li key={topic.tag}>
+                <a href={`/app/search?q=${encodeURIComponent('#' + topic.tag)}`}>#{topic.tag}</a>
+                <span className="erax-muted"> · {topic.posts}</span>
+              </li>
+            ))}
+          </ul>
+          <h2>Creators</h2>
+          <ul className="erax-list">
+            {creators.map((creator) => (
+              <li key={creator.username}>
+                <a href={`/app/u/${creator.username}`}>{creator.displayName}</a>
+                <span className="erax-muted"> · {creator.followers}</span>
+              </li>
+            ))}
+          </ul>
         </section>
         <section className="erax-card">
           <h2>Wallets</h2>

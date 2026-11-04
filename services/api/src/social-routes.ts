@@ -2,6 +2,7 @@ import type { AccountService } from './accounts'
 import { ApiError } from './errors'
 import { sniffMedia } from './media-bytes'
 import type { SocialService } from './social'
+import type { createProductService } from './product'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 
@@ -53,6 +54,7 @@ const prefsBody = z.object({
 
 type Deps = {
   social: SocialService
+  product: ReturnType<typeof createProductService>
   accounts: AccountService
   requireSession: (request: FastifyRequest, csrf: boolean) => ReturnType<AccountService['sessionFromToken']>
   parse: <T>(schema: z.ZodType<T>, value: unknown) => T
@@ -77,7 +79,7 @@ async function readFile(request: FastifyRequest) {
 
 export function registerSocialRoutes(app: FastifyInstance, deps: Deps) {
   const limit = { config: { rateLimit: { max: deps.writeMax, timeWindow: '1 minute' } } }
-  const { social, accounts, parse } = deps
+  const { social, product, accounts, parse } = deps
 
   async function viewer(request: FastifyRequest, csrf: boolean) {
     const session = await deps.requireSession(request, csrf)
@@ -276,6 +278,49 @@ export function registerSocialRoutes(app: FastifyInstance, deps: Deps) {
       throw new ApiError(400, 'invalid_media', 'Cover image must be PNG, JPEG, WebP, or GIF')
     }
     return accounts.saveCover(userId, bytes, sniffed.extension, request.ip ?? null)
+  })
+
+  const rangeBody = z.enum(['7d', '30d', '90d', 'all'])
+  app.get('/api/v1/studio', async (request) => {
+    const range = rangeBody.safeParse(queryOf(request).range ?? '30d')
+    return product.studio(await viewer(request, false), range.success ? range.data : '30d')
+  })
+  app.get('/api/v1/drafts', async (request) => product.listDrafts(await viewer(request, false)))
+  app.post('/api/v1/drafts', limit, async (request, reply) => {
+    const body = parse(z.object({ body: z.string().max(2000), linkUrl: z.string().max(500).nullable().optional() }), request.body)
+    return reply.status(201).send(await product.saveDraft(await viewer(request, true), body))
+  })
+  app.delete('/api/v1/drafts/:id', limit, async (request) => product.deleteDraft(await viewer(request, true), paramsOf(request).id ?? ''))
+  app.post('/api/v1/drafts/:id/publish', limit, async (request, reply) => {
+    const userId = await viewer(request, true)
+    const draft = await product.takeDraft(userId, paramsOf(request).id ?? '')
+    const card = await social.createPost(userId, { body: draft.body, linkUrl: draft.linkUrl })
+    return reply.status(201).send(card)
+  })
+  app.post('/api/v1/posts/:id/poll', limit, async (request, reply) => {
+    const body = parse(
+      z.object({ options: z.array(z.string().min(1).max(80)).min(2).max(6), closesAt: z.string().nullable().optional() }),
+      request.body,
+    )
+    return reply.status(201).send(await product.attachPoll(await viewer(request, true), paramsOf(request).id ?? '', body))
+  })
+  app.get('/api/v1/posts/:id/poll', async (request) => product.poll(paramsOf(request).id ?? '', await optionalViewer(request)))
+  app.post('/api/v1/posts/:id/poll/votes', limit, async (request) => {
+    const body = parse(z.object({ optionId: uuid }), request.body)
+    return product.vote(await viewer(request, true), paramsOf(request).id ?? '', body.optionId)
+  })
+  app.get('/api/v1/discovery', async () => product.discovery())
+  app.get('/api/v1/communities/:slug/channels', async (request) => product.listChannels(paramsOf(request).slug ?? ''))
+  app.post('/api/v1/communities/:slug/channels', limit, async (request, reply) => {
+    const body = parse(z.object({ name: z.string().min(2).max(40), channelSlug: z.string().min(2).max(40) }), request.body)
+    return reply.status(201).send(await product.createChannel(await viewer(request, true), paramsOf(request).slug ?? '', body))
+  })
+  app.patch('/api/v1/posts/:id/flags', limit, async (request) => {
+    const body = parse(
+      z.object({ pinned: z.boolean().optional(), locked: z.boolean().optional(), featured: z.boolean().optional() }),
+      request.body,
+    )
+    return product.setPostFlags(await viewer(request, true), paramsOf(request).id ?? '', body)
   })
 
   return { optionalViewer, social }

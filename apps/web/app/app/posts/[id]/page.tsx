@@ -17,12 +17,19 @@ export default function PostPage() {
   const [quote, setQuote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [me, setMe] = useState<string | null>(null)
+  const [poll, setPoll] = useState<Awaited<ReturnType<typeof api.poll>>>(null)
 
   async function load() {
-    const [nextPost, nextComments, session] = await Promise.all([api.post(id), api.comments(id), api.me()])
+    const [nextPost, nextComments, session, nextPoll] = await Promise.all([
+      api.post(id),
+      api.comments(id),
+      api.me(),
+      api.poll(id),
+    ])
     setPost(nextPost)
     setComments(nextComments.items)
     setMe(session.profile.username)
+    setPoll(nextPoll)
   }
 
   useEffect(() => {
@@ -92,7 +99,33 @@ export default function PostPage() {
           <a href={`/app/posts/${post.id}/edit`}>Edit post</a>
         </p>
       ) : null}
-      {error ? <Alert>{error}</Alert> : null}
+      {poll ? (
+        <section className="erax-card">
+          <h2>{poll.closed ? 'Poll ended' : 'Poll'}</h2>
+          <ul className="erax-list">
+            {poll.options.map((option) => (
+              <li key={option.id}>
+                <button
+                  type="button"
+                  aria-pressed={poll.viewerOptionId === option.id}
+                  disabled={poll.closed}
+                  onClick={() => {
+                    void api
+                      .votePoll(id, option.id)
+                      .then(setPoll)
+                      .catch((caught: unknown) =>
+                        setError(caught instanceof ApiClientError ? caught.message : 'Vote was not recorded'),
+                      )
+                  }}
+                >
+                  {option.label}
+                </button>
+                <span className="erax-muted"> · {option.votes}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <form className="erax-form" onSubmit={(event) => void comment(event)}>
         <TextArea label="Comment" value={body} onChange={(event) => setBody(event.target.value)} />
         <Button type="submit">Comment</Button>

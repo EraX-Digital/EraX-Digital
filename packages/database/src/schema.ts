@@ -368,6 +368,10 @@ export const posts = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     editedAt: timestamp('edited_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    channelId: uuid('channel_id'),
+    pinnedAt: timestamp('pinned_at', { withTimezone: true }),
+    locked: boolean('locked').notNull().default(false),
+    featured: boolean('featured').notNull().default(false),
   },
   (table) => [
     index('posts_author_created_idx').on(table.authorId, table.createdAt),
@@ -653,6 +657,73 @@ export const userMentions = pgTable(
   (table) => [index('user_mentions_user_idx').on(table.mentionedUserId)],
 )
 
+export const communityChannels = pgTable(
+  'community_channels',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    communityId: uuid('community_id')
+      .notNull()
+      .references(() => communities.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('community_channels_slug_unique').on(table.communityId, sql`lower(${table.slug})`)],
+)
+
+export const postDrafts = pgTable(
+  'post_drafts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    body: text('body').notNull().default(''),
+    linkUrl: text('link_url'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('post_drafts_author_idx').on(table.authorId, table.updatedAt)],
+)
+
+export const polls = pgTable('polls', {
+  postId: uuid('post_id')
+    .primaryKey()
+    .references(() => posts.id, { onDelete: 'cascade' }),
+  closesAt: timestamp('closes_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const pollOptions = pgTable(
+  'poll_options',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    postId: uuid('post_id')
+      .notNull()
+      .references(() => polls.postId, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    position: integer('position').notNull(),
+  },
+  (table) => [index('poll_options_post_idx').on(table.postId, table.position)],
+)
+
+export const pollVotes = pgTable(
+  'poll_votes',
+  {
+    postId: uuid('post_id')
+      .notNull()
+      .references(() => polls.postId, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    optionId: uuid('option_id')
+      .notNull()
+      .references(() => pollOptions.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.postId, table.userId] })],
+)
+
 export const schema = {
   users,
   profiles,
@@ -674,7 +745,12 @@ export const schema = {
   communities,
   communityMembers,
   communityInvites,
+  communityChannels,
   posts,
+  postDrafts,
+  polls,
+  pollOptions,
+  pollVotes,
   postMedia,
   postLikes,
   postReposts,

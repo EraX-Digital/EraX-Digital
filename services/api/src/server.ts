@@ -23,6 +23,7 @@ import { ApiError, errorBody } from './errors'
 import { publicCheckDetail } from './public-error'
 import { sniffMedia } from './media-bytes'
 import type { MediaStorage } from './media'
+import { createProductService } from './product'
 import { registerSocialRoutes } from './social-routes'
 import { createSocialService } from './social'
 
@@ -408,8 +409,10 @@ export async function buildServer(deps: ServerDeps) {
     apiOrigin: env.API_PUBLIC_ORIGIN,
     now,
   })
+  const product = createProductService(deps.db, now)
   const socialRoutes = registerSocialRoutes(app, {
     social,
+    product,
     accounts,
     requireSession,
     parse,

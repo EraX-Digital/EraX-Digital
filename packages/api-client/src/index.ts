@@ -231,6 +231,48 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
     chainStatus() {
       return request<ChainStatus>('/api/v1/socialfi/chain-status')
     },
+    studio(range: '7d' | '30d' | '90d' | 'all' = '30d') {
+      return request<{
+        range: string
+        followers: { total: number; gainedInRange: number }
+        posts: number
+        likes: number
+        replies: number
+        reposts: number
+        topPosts: Array<{ id: string; body: string; likes: number }>
+        unavailable: string[]
+      }>(`/api/v1/studio?range=${range}`)
+    },
+    discovery() {
+      return request<{
+        rule: string
+        topics: Array<{ tag: string; posts: number }>
+        creators: Array<{ username: string; displayName: string; followers: number }>
+      }>('/api/v1/discovery')
+    },
+    poll(postId: string) {
+      return request<{
+        closed: boolean
+        viewerOptionId: string | null
+        options: Array<{ id: string; label: string; votes: number }>
+      } | null>(`/api/v1/posts/${postId}/poll`)
+    },
+    votePoll(postId: string, optionId: string) {
+      return request<{
+        closed: boolean
+        viewerOptionId: string | null
+        options: Array<{ id: string; label: string; votes: number }>
+      }>(`/api/v1/posts/${postId}/poll/votes`, { method: 'POST', body: { optionId }, csrf: true })
+    },
+    attachPoll(postId: string, options: string[]) {
+      return request(`/api/v1/posts/${postId}/poll`, { method: 'POST', body: { options }, csrf: true })
+    },
+    saveDraft(body: string) {
+      return request<{ id: string; body: string }>('/api/v1/drafts', { method: 'POST', body: { body }, csrf: true })
+    },
+    publishDraft(id: string) {
+      return request<PostCard>(`/api/v1/drafts/${id}/publish`, { method: 'POST', csrf: true })
+    },
     report(input: { targetType: 'post' | 'comment' | 'profile' | 'community'; targetId: string; reason: string }) {
       return request<{ reported: boolean }>('/api/v1/reports', { method: 'POST', body: input, csrf: true })
     },

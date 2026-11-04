@@ -934,6 +934,7 @@ export function createSocialService(options: SocialServiceOptions) {
 
     async createComment(userId: string, postId: string, input: { body: string; parentId?: string | null }) {
       const row = await requireVisiblePost(postId, userId)
+      if (row.post.locked) throw new ApiError(403, 'post_locked', 'This discussion is locked')
       let body = ''
       try {
         body = cleanText(input.body, 1000)
