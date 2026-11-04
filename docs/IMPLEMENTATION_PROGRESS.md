@@ -1,95 +1,67 @@
 # EraX Digital — Implementation Progress
 
-Last updated: 2026-11-03
+Last updated: 2026-11-04
 
 ## Current status
 
-Phase 3 remains in place. Production deployment is prepared and is not approved to launch.
+Phase 4, multi-chain wallet and blockchain integration, is implemented and waiting for approval. Phase 5 has not been started. No contract was deployed. No mainnet transfer was sent.
 
-No Vercel project was created, no DNS record was changed, and no migration was run against Neon. Do not start Phase 4 from this work.
+Production deployment is still not approved. No Vercel project was created, no DNS record was changed, and no migration was run against Neon.
 
-PostgreSQL compatibility is not established on a running server. `pnpm db:verify:embedded` ran the PostgreSQL 16.15 `initdb` from `embedded-postgres@16.15.0-beta.19` and then failed because PostgreSQL refused to start under the Administrator account. The command exited 1. The test that talks to a supplied `DATABASE_URL` is still skipped locally. The GitHub Actions workflow that provides PostgreSQL 16 was not run.
-
-SMTP, S3, Valkey, and Vercel runtime behavior were not exercised against live services.
+PostgreSQL still does not start under this Administrator account. Wallet migration `0003_wallet.sql` was applied and checked on PGlite. The PostgreSQL `DATABASE_URL` test remains skipped.
 
 ## Completed tasks
 
-Phase 1 and Phase 2 remain. Phase 3 added EraX Social. This pass added production configuration and deployment instructions.
+Phase 1, Phase 2, and Phase 3 remain. Phase 4 added:
 
-Verified in this session:
-
-- `pnpm typecheck` exited 0.
-- `pnpm lint` exited 0.
-- `pnpm test` — 15 files passed, 1 skipped, 33 tests passed, 1 skipped.
-- `pnpm build` in `apps/web` and `apps/admin` exited 0 (`next build`, Next.js 16.4.4).
-- `pnpm install --frozen-lockfile --filter @erax/web...` from `apps/web` exited 0.
-- `pnpm install --frozen-lockfile --filter @erax/admin...` from `apps/admin` exited 0.
-- Production environment parsing rejects PGlite, the memory rate limiter, the email outbox, filesystem media, insecure cookies, and localhost database URLs.
-- Remote seed and remote migration guards were unit-tested. They were not aimed at a Neon host.
+- Typed networks for Ethereum, Base, Sepolia, Base Sepolia, Solana mainnet-beta, and Solana devnet.
+- Wagmi 3 and Viem wallet connection in the browser, plus Phantom, Solflare, and Backpack through Wallet Adapter on `@solana/web3.js` 1.99.0.
+- SIWE and SIWS challenge, one-time nonce, signature check, and EraX session.
+- Multiple linked wallets, a preferred wallet, and disconnect that keeps the address reserved.
+- Native and token balance reads, transfer previews, wallet-signed submission, and receipt checks.
+- A forward indexer with checkpoints, a 25-block EVM window, and reorg rewind.
+- Wallet pages under `/wallet`.
 
 ## Remaining tasks
 
-Before a public launch, an operator has to complete `docs/PRODUCTION_READINESS_CHECKLIST.md`. The blocking evidence gaps are:
-
-- A passing `pnpm db:verify` against real PostgreSQL, then against the Neon preview branch, and only then against production.
-- A real SMTP delivery.
-- A live S3 upload and download.
-- A live Valkey connection used by the rate limiter.
-- A Vercel preview of web and admin pointed at a preview API.
-- Separate hosting for the Fastify API and the indexer. They are not Vercel functions.
-
-Wallet signature verification and chain indexing remain unimplemented. Do not add a token, contracts, custodial keys, or a chain deployment as part of deployment.
+- A passing `pnpm db:verify` against real PostgreSQL, then Neon, before any production migration.
+- Live SMTP, S3, and Valkey, unchanged from the production checklist.
+- A browser extension approval for MetaMask, Coinbase Wallet, Phantom, Solflare, or Backpack. This session reached the connect buttons and did not complete a provider approval.
+- EIP-1271 against a contract wallet.
+- An ownership-transfer flow if a linked address should move between accounts.
+- Do not start contract work or a token.
 
 ## Current architecture
 
-The API is a long-running Fastify process. Web and admin are Next.js applications prepared as two Vercel projects. The indexer is a second long-running process and still reports that no chain is connected.
+The API remains a long-running Fastify process. Web and admin remain Next.js apps. The indexer is a second long-running process. It scans only when its database and at least one RPC URL are available. On PGlite it must use the same directory as the API, and it cannot open that directory while the API holds the file.
 
-Production boot does not migrate unless `ERAX_AUTO_MIGRATE=true`. Media in production must be `s3`. Rate limiting in production must be Valkey. Email in production must be SMTP. Direct messages still use HTTP refresh and are not end-to-end encrypted.
+`docs/PHASE_4_ARCHITECTURE.md` is the wallet design. The completion report records what was actually tested.
 
-## Changed files
-
-Production configuration and checks:
-
-- `packages/config/src/index.ts`
-- `packages/database/src/client.ts`
-- `packages/database/src/cli.ts`
-- `packages/database/src/seed.ts`
-- `packages/database/src/verify.ts`
-- `packages/database/src/verify-cli.ts`
-- `packages/database/src/embedded-verify.ts`
-- `services/api/src/media-s3.ts`
-- `services/api/src/index.ts`
-- `services/api/src/server.ts`
-- `.env.example`
-- `apps/web/vercel.json`
-- `apps/admin/vercel.json`
-
-Guides:
-
-- `docs/PRODUCTION_DEPLOYMENT_GUIDE.md`
-- `docs/PRODUCTION_DATABASE_GUIDE.md`
-- `docs/VERCEL_CONFIGURATION.md`
-- `docs/PRODUCTION_ENVIRONMENT_VARIABLES.md`
-- `docs/PRODUCTION_READINESS_CHECKLIST.md`
+`pnpm lint` exited 0 after the final connect-page edit. `pnpm --filter @erax/web build` and `pnpm --filter @erax/admin build` exited 0.
 
 ## Known issues
 
-- This Windows session runs as Administrator. PostgreSQL 16.15 exited before accepting connections, so migrations were not applied to a live server here.
-- Docker is still not installed. Compose was not started.
-- Email delivery, object storage, and Valkey were not connected.
-- The local PGlite database, when present from earlier development, is not a production dataset and must not be copied to Neon.
-- Message delivery remains HTTP polling.
+- This Windows session runs as Administrator. PostgreSQL 16.15 still exits before accepting connections.
+- Docker is not installed.
+- Email, object storage, and Valkey were not connected to live services.
+- Portfolio valuation is unavailable because no price feed is configured.
+- Wallet history is not exhaustive. The first indexer tick stores the chain head and does not backfill.
+- Solana history sync stores recent decoded system transfers only.
+- `@solana/wallet-adapter-backpack@0.1.14` is deprecated upstream and is still the installed adapter.
+- Without the MetaMask extension, the MetaMask button entered `Connecting` and did not return an error in this browser.
 
 ## Test results
 
 ```text
-Test Files  15 passed | 1 skipped (16)
-     Tests  33 passed | 1 skipped (34)
-  Duration  44.47s
+Test Files  22 passed | 1 skipped (23)
+     Tests  56 passed | 1 skipped (57)
+  Duration  75.84s
 ```
 
-The skipped test is `packages/database/src/postgres-migrate.test.ts`. `pnpm db:verify:embedded` exited 1.
+`pnpm typecheck` and `pnpm lint` exited 0 before the final connector-peer install. The web production build was run again after that install. See `docs/PHASE_4_COMPLETION_REPORT.md` for the command results.
+
+The skipped test is `packages/database/src/postgres-migrate.test.ts`.
 
 ## Next exact implementation step
 
-Wait for approval before creating Neon branches, running `pnpm db:verify` against any remote URL, creating Vercel projects, or changing DNS. Do not start Phase 4.
+Wait for approval. Do not deploy contracts, send mainnet funds, create Vercel projects, or start the next phase.

@@ -49,6 +49,7 @@ export default function LoginPage() {
               {pending ? 'Signing in…' : 'Sign in'}
             </Button>
             <a href="/forgot-password">Forgot password</a>
+            <a href="/wallet/connect">Sign in with a wallet</a>
           </div>
         </form>
       </section>

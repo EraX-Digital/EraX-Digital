@@ -63,6 +63,13 @@ const schema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    EVM_RPC_URL_1: z.string().optional().default(''),
+    EVM_RPC_URL_8453: z.string().optional().default(''),
+    EVM_RPC_URL_11155111: z.string().optional().default(''),
+    EVM_RPC_URL_84532: z.string().optional().default(''),
+    SOLANA_RPC_URL_MAINNET: z.string().optional().default(''),
+    SOLANA_RPC_URL_DEVNET: z.string().optional().default(''),
+    TRUSTED_TOKEN_LIST_JSON: z.string().optional().default(''),
     ENABLE_API_DOCS: z
       .enum(['true', 'false'])
       .default('true')
@@ -139,6 +146,44 @@ const schema = z
         path: ['COOKIE_DOMAIN'],
         message: 'COOKIE_DOMAIN must start with a dot, for example .erax.digital',
       })
+    }
+
+    const rpcKeys = [
+      'EVM_RPC_URL_1',
+      'EVM_RPC_URL_8453',
+      'EVM_RPC_URL_11155111',
+      'EVM_RPC_URL_84532',
+      'SOLANA_RPC_URL_MAINNET',
+      'SOLANA_RPC_URL_DEVNET',
+    ] as const
+    for (const key of rpcKeys) {
+      const url = value[key]
+      if (url.length === 0) continue
+      let parsed: URL
+      try {
+        parsed = new URL(url)
+      } catch {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} must be an http or https URL`,
+        })
+        continue
+      }
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} must be an http or https URL`,
+        })
+      }
+      if (value.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} must use https in production`,
+        })
+      }
     }
 
     if (value.NODE_ENV === 'production') {

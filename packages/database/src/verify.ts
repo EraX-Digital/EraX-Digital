@@ -7,6 +7,8 @@ const { Pool } = pg
 const EXPECTED_TABLES = [
   'audit_logs',
   'auth_challenges',
+  'blockchain_assets',
+  'blockchain_networks',
   'comment_likes',
   'comments',
   'communities',
@@ -30,10 +32,15 @@ const EXPECTED_TABLES = [
   'posts',
   'profiles',
   'schema_migrations',
+  'indexer_checkpoints',
   'sessions',
+  'transaction_status_updates',
   'user_blocks',
   'user_mentions',
   'users',
+  'wallet_auth_events',
+  'wallet_preferences',
+  'wallet_transactions',
   'wallets',
 ] as const
 
@@ -44,6 +51,7 @@ const EXPECTED_INDEXES = [
   'posts_public_created_idx',
   'profiles_username_unique',
   'users_email_unique',
+  'wallets_address_exact',
 ] as const
 
 export type PostgresVerification = {

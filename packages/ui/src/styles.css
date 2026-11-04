@@ -299,6 +299,10 @@ textarea {
   padding: 0 6px;
   font-size: 12px;
 }
+.erax-address {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
 .erax-pill {
   color: var(--teal);
   font-size: 12px;
@@ -311,6 +315,9 @@ textarea {
 @media (max-width: 900px) {
   .erax-social {
     grid-template-columns: 1fr;
+  }
+  .erax-main {
+    padding-bottom: 88px;
   }
   .erax-side {
     position: static;

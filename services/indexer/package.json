@@ -12,9 +12,15 @@
   "dependencies": {
     "@erax/blockchain-common": "workspace:*",
     "@erax/config": "workspace:*",
+    "@erax/database": "workspace:*",
+    "@erax/wallet-evm": "workspace:*",
+    "@erax/wallet-solana": "workspace:*",
+    "@solana/web3.js": "1.99.0",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
     "fastify": "^5.6.1",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "viem": "^2.57.16"
   },
   "devDependencies": {
     "@types/node": "^24.9.1",

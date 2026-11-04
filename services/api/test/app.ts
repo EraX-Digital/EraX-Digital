@@ -5,11 +5,12 @@ import { parseEnv } from '@erax/config'
 import { createDatabase, migrateDatabase } from '@erax/database'
 import { createOutboxSender } from '../src/email'
 import { createFilesystemStorage } from '../src/media'
+import type { ChainReaders } from '../src/chain-readers'
 import { buildServer } from '../src/server'
 
 export const origin = 'http://127.0.0.1:3000'
 
-export async function createTestApp(options?: { writeRateMax?: number }) {
+export async function createTestApp(options?: { writeRateMax?: number; chainReaders?: ChainReaders }) {
   const outboxDir = await mkdtemp(path.join(tmpdir(), 'erax-outbox-'))
   const mediaRoot = await mkdtemp(path.join(tmpdir(), 'erax-media-'))
   const env = parseEnv({
@@ -39,6 +40,7 @@ export async function createTestApp(options?: { writeRateMax?: number }) {
     email: createOutboxSender(outboxDir),
     media: createFilesystemStorage(mediaRoot),
     writeRateMax: options?.writeRateMax,
+    chainReaders: options?.chainReaders,
   })
   return { app, db: runtime.db, env, outboxDir }
 }

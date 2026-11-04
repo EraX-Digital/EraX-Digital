@@ -7,7 +7,7 @@ export type UserStatus = 'active' | 'suspended'
 
 export type PublicUser = {
   id: string
-  email: string
+  email: string | null
   role: UserRole
   status: UserStatus
   emailVerifiedAt: string | null
@@ -119,6 +119,6 @@ export type ApiErrorBody = {
 
 export type WalletAuthStatus = {
   protocol: 'siwe' | 'siws'
-  implemented: false
+  implemented: boolean
   missing: string[]
 }

@@ -445,6 +445,151 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
         csrf: true,
       })
     },
+    walletNetworks() {
+      return request<{
+        networks: Array<{
+          family: 'evm' | 'solana'
+          caip2: string
+          name: string
+          chainId: number | null
+          nativeSymbol: string
+          nativeDecimals: number
+          environment: 'mainnet' | 'testnet'
+          rpcConfigured: boolean
+        }>
+      }>('/api/v1/wallet/networks')
+    },
+    walletAssets() {
+      return request<{
+        assets: Array<{
+          network: string
+          kind: string
+          symbol: string
+          name: string
+          contractAddress: string
+          decimals: number
+          verified: boolean
+        }>
+        valuation: 'unavailable'
+      }>('/api/v1/wallet/assets')
+    },
+    walletChallenge(
+      protocol: 'siwe' | 'siws',
+      body: { address: string; network: string; purpose: 'sign-in' | 'link' },
+    ) {
+      return request<{ message: string; nonce: string; expiresAt: string }>(
+        `/api/v1/auth/${protocol}/challenge`,
+        { method: 'POST', body, csrf: body.purpose === 'link' },
+      )
+    },
+    walletVerify(protocol: 'siwe' | 'siws', body: { message: string; signature: string }) {
+      return request<{ user: PublicUser | null; walletId: string; linked: boolean }>(
+        `/api/v1/auth/${protocol}/verify`,
+        { method: 'POST', body, csrf: true },
+      )
+    },
+    wallets() {
+      return request<{
+        wallets: Array<{
+          id: string
+          family: 'evm' | 'solana'
+          network: string
+          networkName: string
+          address: string
+          preferred: boolean
+          connected: boolean
+          verifiedAt: string | null
+          explorerUrl: string | null
+        }>
+      }>('/api/v1/wallets')
+    },
+    walletBalances(id: string) {
+      return request<{
+        balances: Array<{
+          symbol: string | null
+          name: string | null
+          assetAddress: string
+          amountBaseUnits: string
+          amount: string | null
+          decimals: number | null
+          verified: boolean
+        }>
+        valuation: 'unavailable'
+      }>(`/api/v1/wallets/${id}/balances`)
+    },
+    disconnectWallet(id: string) {
+      return request(`/api/v1/wallets/${id}`, { method: 'DELETE', csrf: true })
+    },
+    preferWallet(id: string) {
+      return request(`/api/v1/wallets/${id}/preferred`, { method: 'POST', csrf: true })
+    },
+    previewTransfer(body: { walletId: string; recipient: string; assetAddress: string; amount: string }) {
+      return request<{
+        network: string
+        sender: string
+        recipient: string
+        asset: { symbol: string; name: string; assetAddress: string; decimals: number; verified: boolean }
+        amount: string
+        amountBaseUnits: string
+        fee: string | null
+        feeBaseUnits: string | null
+        feeStatus: 'estimated' | 'not_configured'
+        warnings: string[]
+        transaction: {
+          chainId?: number
+          to?: string
+          value?: string
+          data?: `0x${string}`
+          instructions?: Array<{
+            programId: string
+            keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>
+            dataBase64: string
+          }>
+        }
+      }>('/api/v1/wallets/transfers/preview', { method: 'POST', body, csrf: true })
+    },
+    recordTransaction(body: {
+      walletId: string
+      recipient: string
+      assetAddress: string
+      assetSymbol: string
+      amountBaseUnits: string
+      hash: string
+      feeBaseUnits?: string
+    }) {
+      return request<{ transaction: { id: string; status: string }; confirmed: boolean }>(
+        '/api/v1/wallets/transactions',
+        { method: 'POST', body, csrf: true },
+      )
+    },
+    walletTransactions(cursor?: string) {
+      const params = new URLSearchParams()
+      if (cursor) params.set('cursor', cursor)
+      return request<{
+        transactions: Array<{
+          id: string
+          network: string
+          hash: string
+          sender: string
+          recipient: string
+          assetSymbol: string
+          amountBaseUnits: string
+          feeBaseUnits: string | null
+          status: string
+          source: 'erax' | 'chain'
+          createdAt: string
+          explorerUrl: string | null
+        }>
+        nextCursor: string | null
+        coverage: string
+      }>(`/api/v1/wallets/transactions?${params.toString()}`)
+    },
+    refreshTransaction(id: string) {
+      return request<{ transaction: { id: string; status: string }; confirmation: string }>(
+        `/api/v1/wallets/transactions/${id}/refresh`,
+        { method: 'POST', csrf: true },
+      )
+    },
   }
 }
 

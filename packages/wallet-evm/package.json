@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@erax/shared-types": "workspace:*"
+    "@erax/blockchain-common": "workspace:*",
+    "@erax/shared-types": "workspace:*",
+    "@erax/wallet-core": "workspace:*",
+    "viem": "^2.57.16"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

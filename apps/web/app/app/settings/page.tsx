@@ -47,7 +47,7 @@ export default function SettingsPage() {
       {error ? <Alert>{error}</Alert> : null}
       {user ? (
         <>
-          <p>Email: {user.email}</p>
+          <p>Email: {user.email ?? 'No email address on this wallet account'}</p>
           <p className="erax-muted">
             Verification:{' '}
             {user.emailVerifiedAt ? `verified ${user.emailVerifiedAt}` : 'not verified'}

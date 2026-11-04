@@ -104,7 +104,7 @@ export default function ProfilePage() {
         <a href={`/app/u/${profile.username}`}>View public profile</a>
       </form>
       <p className="erax-muted">
-        Linked wallets will appear here after signature verification exists. None are linked.
+        Linked wallets are verified by a signature. Manage them on the <a href="/wallet">wallet page</a>.
       </p>
     </section>
   )

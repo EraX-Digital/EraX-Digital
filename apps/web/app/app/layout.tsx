@@ -9,6 +9,7 @@ import { api } from '../../lib/api'
 
 const links = [
   ['/app', 'Home'],
+  ['/wallet', 'Wallet'],
   ['/app/explore', 'Explore'],
   ['/app/communities', 'Communities'],
   ['/app/messages', 'Messages'],
@@ -101,6 +102,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
       <main className="erax-main">{children}</main>
       <nav className="erax-bottom-nav">
         <a href="/app">Home</a>
+        <a href="/wallet">Wallet</a>
         <a href="/app/explore">Explore</a>
         <a href="/app/communities">Communities</a>
         <a href="/app/messages">Messages</a>

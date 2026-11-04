@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -18,8 +19,8 @@ export const users = pgTable(
   'users',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    email: text('email').notNull(),
-    passwordHash: text('password_hash').notNull(),
+    email: text('email'),
+    passwordHash: text('password_hash'),
     role: text('role', { enum: ['user', 'admin'] })
       .notNull()
       .default('user'),
@@ -71,16 +72,16 @@ export const wallets = pgTable(
     chainFamily: text('chain_family', { enum: ['evm', 'solana'] }).notNull(),
     network: text('network').notNull(),
     address: text('address').notNull(),
+    label: text('label').notNull().default(''),
+    preferred: boolean('preferred').notNull().default(false),
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    disconnectedAt: timestamp('disconnected_at', { withTimezone: true }),
+    lastConnectedAt: timestamp('last_connected_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex('wallets_identity_unique').on(
-      table.chainFamily,
-      table.network,
-      sql`lower(${table.address})`,
-    ),
+    uniqueIndex('wallets_address_exact').on(table.chainFamily, table.network, table.address),
     index('wallets_user_idx').on(table.userId),
   ],
 )
@@ -92,9 +93,109 @@ export const authChallenges = pgTable('auth_challenges', {
   network: text('network').notNull(),
   domain: text('domain').notNull(),
   nonce: text('nonce').notNull().unique(),
+  message: text('message').notNull().default(''),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   consumedAt: timestamp('consumed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const walletAuthEvents = pgTable('wallet_auth_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  protocol: text('protocol', { enum: ['siwe', 'siws'] }).notNull(),
+  address: text('address').notNull(),
+  network: text('network').notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  result: text('result', { enum: ['succeeded', 'failed'] }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const walletPreferences = pgTable('wallet_preferences', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  preferredWalletId: uuid('preferred_wallet_id').references(() => wallets.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const blockchainNetworks = pgTable('blockchain_networks', {
+  caip2: text('caip2').primaryKey(),
+  family: text('family', { enum: ['evm', 'solana'] }).notNull(),
+  name: text('name').notNull(),
+  chainRef: text('chain_ref'),
+  explorerTx: text('explorer_tx').notNull(),
+  nativeSymbol: text('native_symbol').notNull(),
+  nativeDecimals: integer('native_decimals').notNull(),
+  environment: text('environment', { enum: ['mainnet', 'testnet'] }).notNull(),
+})
+
+export const blockchainAssets = pgTable(
+  'blockchain_assets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    network: text('network')
+      .notNull()
+      .references(() => blockchainNetworks.caip2),
+    kind: text('kind', { enum: ['native', 'erc20', 'spl', 'token2022'] }).notNull(),
+    symbol: text('symbol').notNull(),
+    name: text('name').notNull(),
+    contractAddress: text('contract_address').notNull().default(''),
+    decimals: integer('decimals').notNull(),
+    verified: boolean('verified').notNull().default(false),
+  },
+  (table) => [uniqueIndex('blockchain_assets_identity').on(table.network, table.contractAddress)],
+)
+
+export const walletTransactions = pgTable(
+  'wallet_transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    walletId: uuid('wallet_id').references(() => wallets.id, { onDelete: 'set null' }),
+    network: text('network').notNull(),
+    hash: text('hash').notNull(),
+    logIndex: integer('log_index').notNull().default(-1),
+    sender: text('sender').notNull(),
+    recipient: text('recipient').notNull(),
+    assetSymbol: text('asset_symbol').notNull(),
+    assetAddress: text('asset_address').notNull().default(''),
+    amountBaseUnits: text('amount_base_units').notNull(),
+    feeBaseUnits: text('fee_base_units'),
+    status: text('status', {
+      enum: ['pending', 'confirmed', 'failed', 'reverted', 'finalized', 'dropped'],
+    }).notNull(),
+    source: text('source', { enum: ['erax', 'chain'] }).notNull(),
+    blockNumber: bigint('block_number', { mode: 'bigint' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('wallet_transactions_identity').on(table.network, table.hash, table.logIndex),
+    index('wallet_transactions_sender_idx').on(table.network, table.sender, table.createdAt),
+    index('wallet_transactions_recipient_idx').on(table.network, table.recipient, table.createdAt),
+  ],
+)
+
+export const transactionStatusUpdates = pgTable(
+  'transaction_status_updates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    transactionId: uuid('transaction_id')
+      .notNull()
+      .references(() => walletTransactions.id, { onDelete: 'cascade' }),
+    status: text('status').notNull(),
+    detail: text('detail').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('transaction_status_updates_tx_idx').on(table.transactionId, table.createdAt)],
+)
+
+export const indexerCheckpoints = pgTable('indexer_checkpoints', {
+  network: text('network')
+    .primaryKey()
+    .references(() => blockchainNetworks.caip2),
+  cursor: text('cursor').notNull(),
+  headHash: text('head_hash'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const sessions = pgTable(
@@ -492,6 +593,13 @@ export const schema = {
   profiles,
   wallets,
   authChallenges,
+  walletAuthEvents,
+  walletPreferences,
+  blockchainNetworks,
+  blockchainAssets,
+  walletTransactions,
+  transactionStatusUpdates,
+  indexerCheckpoints,
   sessions,
   emailVerificationTokens,
   passwordResetTokens,

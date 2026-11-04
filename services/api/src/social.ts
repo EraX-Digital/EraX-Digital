@@ -442,7 +442,13 @@ export function createSocialService(options: SocialServiceOptions) {
         db
           .select()
           .from(wallets)
-          .where(and(eq(wallets.userId, userId), sql`${wallets.verifiedAt} is not null`)),
+          .where(
+            and(
+              eq(wallets.userId, userId),
+              sql`${wallets.verifiedAt} is not null`,
+              isNull(wallets.disconnectedAt),
+            ),
+          ),
       ])
       const links = Array.isArray(found.profile.socialLinks)
         ? (found.profile.socialLinks as SocialLink[])

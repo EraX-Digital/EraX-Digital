@@ -224,7 +224,8 @@ describe('authentication', () => {
       headers: { origin },
       payload: { address: '0x' + 'ab'.repeat(20), signature: '0xsig' },
     })
-    expect(siwe.statusCode).toBe(501)
+    expect(siwe.statusCode).toBe(400)
+    expect(siwe.json().error.code).toBe('invalid_input')
     expect(siwe.headers['set-cookie']).toBeUndefined()
 
     const secret = await context.app.inject({

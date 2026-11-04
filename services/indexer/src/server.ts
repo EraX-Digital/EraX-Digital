@@ -1,7 +1,9 @@
 import { indexingStatus } from '@erax/blockchain-common'
 import Fastify from 'fastify'
 
-export function buildIndexer() {
+type Status = ReturnType<typeof indexingStatus>
+
+export function buildIndexer(indexing: Status = indexingStatus()) {
   const app = Fastify({ logger: { level: process.env.NODE_ENV === 'test' ? 'silent' : 'info' } })
 
   app.get('/health', async () => ({ status: 'ok', service: 'indexer' }))
@@ -11,7 +13,7 @@ export function buildIndexer() {
     checks: {
       process: { ok: true, required: true, detail: 'Indexer process is accepting requests' },
     },
-    indexing: indexingStatus(),
+    indexing,
   }))
 
   return app

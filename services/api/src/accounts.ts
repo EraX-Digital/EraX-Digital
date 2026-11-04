@@ -251,6 +251,7 @@ export function createAccountService(options: AccountServiceOptions) {
           throw new ApiError(409, 'username_taken', 'That username is already taken')
         throw error
       }
+      if (!created.email) throw new ApiError(500, 'internal_error', 'Account email was not saved')
       const emailDelivery = await issueVerification(created.id, created.email, input.ip)
       return { user: publicUser(created), emailDelivery }
     },
@@ -259,7 +260,7 @@ export function createAccountService(options: AccountServiceOptions) {
       const normalized = normalizeEmail(emailAddress)
       const found = await db.select().from(users).where(eq(users.email, normalized)).limit(1)
       const user = found[0]
-      if (!user || user.emailVerifiedAt || user.status !== 'active') return
+      if (!user || !user.email || user.emailVerifiedAt || user.status !== 'active') return
       await issueVerification(user.id, user.email, ip)
     },
 
@@ -308,7 +309,8 @@ export function createAccountService(options: AccountServiceOptions) {
       const emailAddress = normalizeEmail(input.email)
       const found = await db.select().from(users).where(eq(users.email, emailAddress)).limit(1)
       const user = found[0]
-      const passwordOk = user ? await verifyPassword(user.passwordHash, input.password) : false
+      const passwordOk =
+        user?.passwordHash ? await verifyPassword(user.passwordHash, input.password) : false
       if (!user || !passwordOk) {
         throw new ApiError(401, 'invalid_credentials', 'Email or password is incorrect')
       }
@@ -336,6 +338,35 @@ export function createAccountService(options: AccountServiceOptions) {
           targetType: 'user',
           targetId: user.id,
           ip: input.ip,
+        })
+      })
+      return { user: publicUser(user), sessionToken, csrfToken }
+    },
+
+    async openSession(userId: string, ip: string | null, userAgent: string | null) {
+      const found = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+      const user = found[0]
+      if (!user || user.status !== 'active') {
+        throw new ApiError(403, 'account_suspended', 'This account is suspended')
+      }
+      const sessionToken = generateToken()
+      const csrfToken = generateToken()
+      const expiresAt = new Date(options.now().getTime() + options.sessionTtlSeconds * 1000)
+      await db.transaction(async (tx) => {
+        await tx.insert(sessions).values({
+          userId: user.id,
+          tokenHash: hashToken(sessionToken),
+          csrfTokenHash: hashToken(csrfToken),
+          expiresAt,
+          ip,
+          userAgent,
+        })
+        await writeAudit(tx, {
+          actorUserId: user.id,
+          action: 'user.login',
+          targetType: 'user',
+          targetId: user.id,
+          ip,
         })
       })
       return { user: publicUser(user), sessionToken, csrfToken }
@@ -540,7 +571,7 @@ export function createAccountService(options: AccountServiceOptions) {
       const normalized = normalizeEmail(emailAddress)
       const found = await db.select().from(users).where(eq(users.email, normalized)).limit(1)
       const user = found[0]
-      if (!user || user.status !== 'active') return
+      if (!user || !user.email || user.status !== 'active') return
       const raw = generateToken()
       await db.transaction(async (tx) => {
         await tx
@@ -583,7 +614,7 @@ export function createAccountService(options: AccountServiceOptions) {
       const userRows = await db.select().from(users).where(eq(users.id, row.userId)).limit(1)
       const user = userRows[0]
       if (!user) throw new ApiError(400, 'invalid_token', 'This reset link is invalid or expired')
-      const passwordError = validatePassword(password, user.email)
+      const passwordError = validatePassword(password, user.email ?? '')
       if (passwordError) throw new ApiError(400, 'invalid_password', passwordError)
       const passwordHash = await hashPassword(password)
       await db.transaction(async (tx) => {

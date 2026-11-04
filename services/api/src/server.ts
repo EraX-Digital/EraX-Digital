@@ -2,9 +2,11 @@ import { indexingStatus } from '@erax/blockchain-common'
 import { resolveRepoPath, type Env } from '@erax/config'
 import type { Database } from '@erax/database'
 import { CSRF_COOKIE, CSRF_HEADER, SESSION_COOKIE } from '@erax/shared-types'
-import { assertNoWalletSecret } from '@erax/wallet-core'
 import { siweStatus } from '@erax/wallet-evm'
 import { siwsStatus } from '@erax/wallet-solana'
+import { createChainReaders, type ChainReaders } from './chain-readers'
+import { registerWalletRoutes } from './wallet-routes'
+import { createWalletService } from './wallets'
 import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
@@ -23,8 +25,6 @@ import { sniffMedia } from './media-bytes'
 import type { MediaStorage } from './media'
 import { registerSocialRoutes } from './social-routes'
 import { createSocialService } from './social'
-
-const json = z.object({}).passthrough()
 
 const registerBody = z.object({
   email: z.string().email(),
@@ -80,6 +80,7 @@ export type ServerDeps = {
   redis?: Redis
   now?: () => Date
   writeRateMax?: number
+  chainReaders?: ChainReaders
 }
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -105,6 +106,16 @@ export async function buildServer(deps: ServerDeps) {
     apiOrigin: env.API_PUBLIC_ORIGIN,
     sessionTtlSeconds: env.SESSION_TTL_SECONDS,
     now,
+  })
+  const readers = deps.chainReaders ?? createChainReaders(env)
+  const walletService = createWalletService({
+    db: deps.db,
+    webOrigin: env.WEB_ORIGIN,
+    now,
+    trustedTokenJson: env.TRUSTED_TOKEN_LIST_JSON,
+    evmReaders: readers.evm,
+    solanaReaders: readers.solana,
+    openSession: (userId, ip, userAgent) => accounts.openSession(userId, ip, userAgent),
   })
   const allowedOrigins = new Set([env.WEB_ORIGIN, env.ADMIN_ORIGIN, env.API_PUBLIC_ORIGIN])
 
@@ -167,7 +178,7 @@ export async function buildServer(deps: ServerDeps) {
           title: 'EraX API',
           version: '0.2.0',
           description:
-            'EraX Social API. Wallet signature authentication is not implemented. Direct messages use request-response delivery, not end-to-end encryption. The development outbox does not send email.',
+            'EraX Social API. Wallet sign-in verifies SIWE and SIWS signatures. The API does not store private keys or broadcast transactions. Direct messages use request-response delivery, not end-to-end encryption. The development outbox does not send email.',
         },
       },
     })
@@ -282,7 +293,7 @@ export async function buildServer(deps: ServerDeps) {
         siwe: siweStatus(),
         siws: siwsStatus(),
       },
-      indexing: indexingStatus(),
+      indexing: indexingStatus([...Object.keys(readers.evm), ...Object.keys(readers.solana)]),
     }),
   )
 
@@ -350,36 +361,13 @@ export async function buildServer(deps: ServerDeps) {
     return reply.status(204).send()
   })
 
-  function rejectWalletSecrets(body: unknown) {
-    try {
-      assertNoWalletSecret(body)
-    } catch {
-      throw new ApiError(400, 'wallet_secret_rejected', 'Wallet secret material is not accepted')
-    }
-  }
-
-  app.post('/api/v1/auth/siwe/verify', async (request, reply) => {
-    const body = parse(json, request.body ?? {})
-    rejectWalletSecrets(body)
-    return reply.status(501).send({
-      error: {
-        code: 'wallet_auth_not_implemented',
-        message: 'Ethereum signature authentication is not implemented.',
-        details: siweStatus(),
-      },
-    })
-  })
-
-  app.post('/api/v1/auth/siws/verify', async (request, reply) => {
-    const body = parse(json, request.body ?? {})
-    rejectWalletSecrets(body)
-    return reply.status(501).send({
-      error: {
-        code: 'wallet_auth_not_implemented',
-        message: 'Solana signature authentication is not implemented.',
-        details: siwsStatus(),
-      },
-    })
+  registerWalletRoutes(app, {
+    wallets: walletService,
+    requireSession,
+    parse,
+    authLimit,
+    setSessionCookies,
+    clientIp,
   })
 
   app.patch('/api/v1/profile', async (request) => {

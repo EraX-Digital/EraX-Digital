@@ -16,9 +16,9 @@ describe('migrations', () => {
 
     const first = await migrate(executor)
     const second = await migrate(executor)
-    expect(first.applied).toEqual(['0001_foundation', '0002_social'])
+    expect(first.applied).toEqual(['0001_foundation', '0002_social', '0003_wallet'])
     expect(second.applied).toEqual([])
-    expect(second.skipped).toEqual(['0001_foundation', '0002_social'])
+    expect(second.skipped).toEqual(['0001_foundation', '0002_social', '0003_wallet'])
 
     const tables = await client.query<{ tablename: string }>(
       "select tablename from pg_tables where schemaname = 'public' order by tablename",
@@ -39,6 +39,10 @@ describe('migrations', () => {
         'communities',
         'notifications',
         'messages',
+        'wallet_transactions',
+        'indexer_checkpoints',
+        'blockchain_networks',
+        'wallet_preferences',
       ]),
     )
 

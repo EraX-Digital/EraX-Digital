@@ -2,14 +2,14 @@ import { BrandMark, SecondaryLink } from '@erax/ui'
 
 const available = [
   'Create an account with email and a password. A wallet is not required.',
+  'Sign in with Ethereum or Solana after the wallet approves a signature.',
   'Publish posts, follow people, comment, and bookmark.',
   'Join communities and send private messages.',
 ]
 
 const later = [
-  'Wallet connection, balances, and transfers.',
   'Creator subscriptions and on-chain payments.',
-  'Ethereum, Base, and Solana indexing.',
+  'A complete historical index of every past wallet transaction.',
 ]
 
 export default function HomePage() {
@@ -29,8 +29,8 @@ export default function HomePage() {
         <h1>Connect. Create. Own.</h1>
         <p className="lede">
           EraX Social is the social layer of EraX Digital. Accounts, posts, communities, and
-          messages work without a wallet. Chain connection, payments, and indexing are not in this
-          build.
+          messages work without a wallet. Wallet balances and transfers use a connected wallet.
+          Portfolio prices are not shown.
         </p>
         <div className="erax-actions">
           <a className="erax-button" href="/register">
