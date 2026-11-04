@@ -113,7 +113,7 @@ export function FeedScreen({
   return (
     <section className="erax-feed">
       {kind === 'following' || kind === 'community' ? (
-        <form className="erax-card erax-form" onSubmit={(event) => void publish(event)}>
+        <form className="erax-composer erax-form" onSubmit={(event) => void publish(event)}>
           <h2>{kind === 'community' ? 'Post to this community' : 'Create a post'}</h2>
           <TextArea label="Text" name="body" rows={4} maxLength={2000} />
           <TextField label="Link" name="linkUrl" placeholder="https://" />

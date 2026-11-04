@@ -36,12 +36,23 @@ export function PostCardView({
     }
   }
 
+  const initial = post.author.displayName.slice(0, 1).toUpperCase()
+
   return (
-    <article className="erax-post erax-card">
+    <article className="erax-post">
       <header className="erax-post-head">
-        <a href={`/app/u/${post.author.username}`}>
-          <strong>{post.author.displayName}</strong>
-          <span className="erax-muted"> @{post.author.username}</span>
+        <a className="erax-post-author" href={`/app/u/${post.author.username}`}>
+          {post.author.avatarUrl ? (
+            <img className="erax-avatar erax-avatar-sm" alt="" src={post.author.avatarUrl} />
+          ) : (
+            <span className="erax-avatar erax-avatar-sm erax-avatar-fallback" aria-hidden="true">
+              {initial}
+            </span>
+          )}
+          <span>
+            <strong>{post.author.displayName}</strong>
+            <span className="erax-muted"> @{post.author.username}</span>
+          </span>
         </a>
         {post.author.creatorStatus === 'creator' ? (
           <span className="erax-pill">Self-declared creator</span>
@@ -87,14 +98,14 @@ export function PostCardView({
         <a href={`/app/posts/${post.id}`}>{formatTimestamp(post.createdAt)}</a>
         {post.editedAt ? ' · edited' : ''} · {post.visibility}
       </p>
-      <div className="erax-actions">
-        <button type="button" onClick={onLike}>
+      <div className="erax-engage">
+        <button type="button" aria-pressed={post.viewer.liked} onClick={onLike}>
           {post.viewer.liked ? 'Liked' : 'Like'} {post.counts.likes}
         </button>
-        <button type="button" onClick={onRepost}>
+        <button type="button" aria-pressed={post.viewer.reposted} onClick={onRepost}>
           {post.viewer.reposted ? 'Reposted' : 'Repost'} {post.counts.reposts}
         </button>
-        <button type="button" onClick={onBookmark}>
+        <button type="button" aria-pressed={post.viewer.bookmarked} onClick={onBookmark}>
           {post.viewer.bookmarked ? 'Saved' : 'Bookmark'} {post.counts.bookmarks}
         </button>
         <a href={`/app/posts/${post.id}`}>Comments {post.counts.comments}</a>

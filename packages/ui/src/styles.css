@@ -4,13 +4,14 @@
   --bg-2: #12192d;
   --ink: #f6f3ea;
   --muted: #b7b1a4;
-  --line: rgba(224, 177, 90, 0.28);
+  --line: rgba(246, 243, 234, 0.1);
   --gold: #e0b15a;
   --gold-2: #f0d7a2;
   --teal: #8fd0c6;
   --danger: #ffb4a8;
   --ok: #b7ebc6;
-  --shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  --shadow: none;
+  --radius: 10px;
   --sans: var(--font-sans), 'Segoe UI', sans-serif;
   --serif: var(--font-serif), Georgia, serif;
 }
@@ -107,8 +108,8 @@ textarea {
 }
 .erax-hero h1 {
   font-family: var(--serif);
-  font-size: clamp(56px, 8vw, 104px);
-  line-height: 0.9;
+  font-size: clamp(40px, 6vw, 72px);
+  line-height: 0.95;
   margin: 0;
   font-weight: 520;
 }
@@ -124,14 +125,24 @@ textarea {
   gap: 16px;
 }
 .erax-card,
-.erax-panel {
+.erax-panel,
+.erax-composer {
   background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius);
   box-shadow: none;
 }
+.erax-composer {
+  padding: 16px;
+}
 .erax-card {
-  padding: 18px;
+  padding: 16px;
+}
+.erax-composer h2 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 650;
 }
 .erax-card h2,
 .erax-panel h1 {
@@ -190,9 +201,14 @@ textarea {
   color: #1b1408;
   font-weight: 700;
 }
-.erax-button:disabled {
-  opacity: 0.6;
-  cursor: wait;
+.erax-button:hover {
+  filter: brightness(1.06);
+}
+.erax-button-secondary:hover,
+.erax-side-nav a:hover,
+.erax-engage button:hover,
+.erax-engage a:hover {
+  background: rgba(224, 177, 90, 0.1);
 }
 .erax-button-secondary {
   background: transparent;
@@ -250,14 +266,15 @@ textarea {
 
 .erax-social {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 24px;
-  width: min(1180px, calc(100% - 32px));
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 28px;
+  width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 24px 0 96px;
+  padding: 20px 0 96px;
 }
 .erax-social:has(.erax-rail) {
-  grid-template-columns: 220px minmax(0, 640px) 280px;
+  grid-template-columns: 220px minmax(0, 600px) 260px;
+  justify-content: center;
 }
 .erax-side {
   display: flex;
@@ -276,14 +293,116 @@ textarea {
   color: inherit;
   text-decoration: none;
 }
+.erax-side-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+}
+.erax-side-nav a[aria-current='page'] {
+  background: rgba(224, 177, 90, 0.14);
+  color: var(--ink);
+  font-weight: 650;
+}
 .erax-main h1 {
   font-family: var(--serif);
   font-weight: 540;
+  font-size: 32px;
+  margin: 0 0 8px;
 }
 .erax-feed,
 .erax-list {
   display: grid;
-  gap: 14px;
+}
+.erax-feed {
+  gap: 12px;
+}
+.erax-list {
+  gap: 8px;
+}
+.erax-post {
+  padding: 14px 2px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.erax-post-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.erax-post-author {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+.erax-post-body {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.erax-avatar-sm {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+  flex: none;
+}
+.erax-engage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 4px;
+}
+.erax-engage button,
+.erax-engage a {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 999px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.erax-engage button[aria-pressed='true'] {
+  color: var(--gold-2);
+}
+.erax-search {
+  display: grid;
+  gap: 6px;
+}
+.erax-search input {
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  padding: 10px 14px;
+}
+.erax-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.erax-stats a {
+  color: inherit;
+  text-decoration: none;
+}
+.erax-profile-row {
+  margin-top: -36px;
+  padding-left: 12px;
+}
+.erax-profile .erax-avatar {
+  border: 3px solid var(--bg);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 .erax-list {
   list-style: none;
@@ -426,9 +545,6 @@ textarea {
 .erax-footer {
   padding: 28px 0 48px;
   color: var(--muted);
-}
-.erax-side-nav a[aria-current='page'] {
-  color: var(--gold-2);
 }
 @media (max-width: 1100px) {
   .erax-social:has(.erax-rail) {

@@ -163,12 +163,10 @@ export function ProfileScreen({ username }: { username: string }) {
           <p className="erax-pill">Self-declared creator. This is not an on-chain registration.</p>
         ) : null}
         <p>{profile.bio || 'No biography.'}</p>
-        <p className="erax-muted">
+        <p className="erax-stats erax-muted">
           <a href={`/app/u/${profile.username}/followers`}>{profile.stats.followers} followers</a>
-          {' · '}
           <a href={`/app/u/${profile.username}/following`}>{profile.stats.following} following</a>
-          {' · '}
-          {profile.stats.posts} posts
+          <span>{profile.stats.posts} posts</span>
           {profile.viewer.mutualCount > 0 ? (
             <>
               {' · '}

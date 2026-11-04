@@ -109,6 +109,14 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
       <main className="erax-main">{children}</main>
       <aside className="erax-rail">
         <section className="erax-card">
+          <form className="erax-search" action="/app/search">
+            <label className="erax-field">
+              <span>Search</span>
+              <input name="q" placeholder="People, posts, hashtags" />
+            </label>
+          </form>
+        </section>
+        <section className="erax-card">
           <p className="erax-kicker">EraX Social</p>
           <p>
             <a href={`/app/u/${session.profile.username}`}>@{session.profile.username}</a>
