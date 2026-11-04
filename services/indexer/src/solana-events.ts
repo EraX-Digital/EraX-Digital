@@ -1,5 +1,5 @@
 import { chainProgramEvents, type Database } from '@erax/database'
-import { decodeSolanaProgramLogs, type DecodedSolanaCreatorEvent } from '@erax/wallet-solana/creator-programs'
+import type { DecodedSolanaCreatorEvent } from '@erax/wallet-solana/creator-programs'
 
 export async function storeSolanaCreatorEvents(
   db: Database,

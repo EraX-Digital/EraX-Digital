@@ -33,7 +33,7 @@ function decodeEvent(buffer: Buffer): { eventName: SolanaCreatorEventName; paylo
   for (const eventName of EVENT_NAMES) {
     const discriminator = anchorDiscriminator('event', eventName)
     if (!buffer.subarray(0, 8).equals(discriminator)) continue
-    let offset = 8
+    const offset = 8
     if (eventName === 'CreatorRegistered') {
       const authority = pubkey(buffer, offset)
       const payout = pubkey(buffer, authority.next)
