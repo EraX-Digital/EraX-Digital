@@ -14,6 +14,7 @@ export default function PostPage() {
   const [post, setPost] = useState<PostCard | null>(null)
   const [comments, setComments] = useState<CommentCard[]>([])
   const [body, setBody] = useState('')
+  const [quote, setQuote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [me, setMe] = useState<string | null>(null)
 
@@ -46,10 +47,46 @@ export default function PostPage() {
     <>
       <PostCardView
         post={post}
-        onLike={() => void api.react(post.id, 'like', !post.viewer.liked).then(setPost)}
-        onRepost={() => void api.react(post.id, 'repost', !post.viewer.reposted).then(setPost)}
-        onBookmark={() => void api.react(post.id, 'bookmark', !post.viewer.bookmarked).then(setPost)}
+        onLike={() =>
+          void api
+            .react(post.id, 'like', !post.viewer.liked)
+            .then(setPost)
+            .catch((caught: unknown) => setError(caught instanceof ApiClientError ? caught.message : 'Like failed'))
+        }
+        onRepost={() =>
+          void api
+            .react(post.id, 'repost', !post.viewer.reposted)
+            .then(setPost)
+            .catch((caught: unknown) => setError(caught instanceof ApiClientError ? caught.message : 'Repost failed'))
+        }
+        onBookmark={() =>
+          void api
+            .react(post.id, 'bookmark', !post.viewer.bookmarked)
+            .then(setPost)
+            .catch((caught: unknown) => setError(caught instanceof ApiClientError ? caught.message : 'Bookmark failed'))
+        }
+        onReport={async (reason) => {
+          await api.report({ targetType: 'post', targetId: post.id, reason })
+        }}
       />
+      <form
+        className="erax-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void api
+            .createPost({ body: quote, quotePostId: post.id })
+            .then(() => {
+              setQuote('')
+              setError(null)
+            })
+            .catch((caught: unknown) =>
+              setError(caught instanceof ApiClientError ? caught.message : 'Quote was not published'),
+            )
+        }}
+      >
+        <TextArea label="Quote this post" value={quote} maxLength={2000} onChange={(event) => setQuote(event.target.value)} />
+        <Button type="submit">Publish quote</Button>
+      </form>
       {me === post.author.username ? (
         <p>
           <a href={`/app/posts/${post.id}/edit`}>Edit post</a>

@@ -14,7 +14,9 @@ export function composerError(body: string, hasMedia: boolean, link: string): st
   return null
 }
 
-export function emptyCopy(kind: 'following' | 'discover' | 'bookmarks' | 'profile' | 'community' | 'search') {
+export function emptyCopy(
+  kind: 'following' | 'discover' | 'bookmarks' | 'profile' | 'community' | 'search' | 'media' | 'replies' | 'likes',
+) {
   if (kind === 'following') {
     return {
       title: 'No posts from people you follow',
@@ -35,6 +37,15 @@ export function emptyCopy(kind: 'following' | 'discover' | 'bookmarks' | 'profil
   }
   if (kind === 'community') {
     return { title: 'No community posts', body: 'Members have not published in this community.' }
+  }
+  if (kind === 'media') {
+    return { title: 'No media posts', body: 'Posts with an image or video will appear here.' }
+  }
+  if (kind === 'replies') {
+    return { title: 'No replies', body: 'Comments on visible posts will appear here.' }
+  }
+  if (kind === 'likes') {
+    return { title: 'No likes', body: 'Posts you like stay on this tab. Other people cannot see this list.' }
   }
   return { title: 'No posts yet', body: 'This profile has no visible posts.' }
 }
@@ -59,4 +70,10 @@ export function notificationLabel(type: string, name: string): string {
 
 export function postText(post: Pick<PostCard, 'body'>): string {
   return post.body
+}
+
+export function formatTimestamp(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return `${date.toISOString().replace('T', ' ').slice(0, 16)} UTC`
 }

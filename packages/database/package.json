@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "migrate": "tsx src/cli.ts",
     "seed": "tsx src/seed.ts",
+    "seed:socialfi": "tsx src/socialfi-demo-cli.ts",
     "verify": "tsx src/verify-cli.ts",
     "verify:embedded": "tsx src/embedded-verify.ts"
   },

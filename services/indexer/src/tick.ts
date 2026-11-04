@@ -1,4 +1,6 @@
 import { ERC20_TRANSFER_TOPIC, addressFromTopic, amountFromLogData, type IndexedEvmBlock } from '@erax/wallet-evm'
+import { decodeSolanaProgramLogs } from '@erax/wallet-solana/creator-programs'
+import { storeSolanaCreatorEvents } from './solana-events'
 import {
   indexerCheckpoints,
   wallets,
@@ -20,6 +22,7 @@ export type SolanaIndexerReader = {
   getParsedTransfers(
     signature: string,
   ): Promise<Array<{ program: string; type: string; info: Record<string, unknown> }> | null>
+  getTransactionLogs?(signature: string): Promise<readonly string[] | null>
 }
 
 const REORG_DEPTH = 12n
@@ -117,31 +120,44 @@ export async function runSolanaIndexerTick(options: {
       if (signature.err) continue
       const parsed = await options.reader.getParsedTransfers(signature.signature)
       const transfer = parsed?.find((item) => item.program === 'system' && item.type === 'transfer')
-      if (!transfer) continue
-      const sender = String(transfer.info.source ?? '')
-      const recipient = String(transfer.info.destination ?? '')
-      if (sender !== wallet.address && recipient !== wallet.address) continue
-      const amount = BigInt(String(transfer.info.lamports ?? '0'))
-      const inserted = await options.db
-        .insert(walletTransactions)
-        .values({
-          userId: wallet.userId,
-          walletId: wallet.id,
-          network: options.network,
-          hash: signature.signature,
-          logIndex: -1,
-          sender,
-          recipient,
-          assetSymbol: 'SOL',
-          assetAddress: '',
-          amountBaseUnits: amount.toString(),
-          status: 'finalized',
-          source: 'chain',
-          blockNumber: signature.slot === null ? null : BigInt(signature.slot),
-        })
-        .onConflictDoNothing()
-        .returning()
-      if (inserted[0]) indexed += 1
+      if (transfer) {
+        const sender = String(transfer.info.source ?? '')
+        const recipient = String(transfer.info.destination ?? '')
+        if (sender === wallet.address || recipient === wallet.address) {
+          const amount = BigInt(String(transfer.info.lamports ?? '0'))
+          const inserted = await options.db
+            .insert(walletTransactions)
+            .values({
+              userId: wallet.userId,
+              walletId: wallet.id,
+              network: options.network,
+              hash: signature.signature,
+              logIndex: -1,
+              sender,
+              recipient,
+              assetSymbol: 'SOL',
+              assetAddress: '',
+              amountBaseUnits: amount.toString(),
+              status: 'finalized',
+              source: 'chain',
+              blockNumber: signature.slot === null ? null : BigInt(signature.slot),
+            })
+            .onConflictDoNothing()
+            .returning()
+          if (inserted[0]) indexed += 1
+        }
+      }
+      if (options.reader.getTransactionLogs) {
+        const logs = await options.reader.getTransactionLogs(signature.signature)
+        if (logs) {
+          indexed += await storeSolanaCreatorEvents(options.db, {
+            network: options.network,
+            signature: signature.signature,
+            slot: signature.slot,
+            events: decodeSolanaProgramLogs(logs),
+          })
+        }
+      }
     }
   }
   await options.db

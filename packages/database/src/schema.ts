@@ -189,6 +189,28 @@ export const transactionStatusUpdates = pgTable(
   (table) => [index('transaction_status_updates_tx_idx').on(table.transactionId, table.createdAt)],
 )
 
+export const chainProgramEvents = pgTable(
+  'chain_program_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    network: text('network').notNull(),
+    signature: text('signature').notNull(),
+    eventIndex: integer('event_index').notNull(),
+    programId: text('program_id').notNull(),
+    eventName: text('event_name', {
+      enum: ['CreatorRegistered', 'CreatorMetadataUpdated', 'CreatorPayoutUpdated', 'TipSent'],
+    }).notNull(),
+    slot: bigint('slot', { mode: 'bigint' }),
+    payload: jsonb('payload').notNull(),
+    status: text('status', { enum: ['finalized', 'failed'] }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('chain_program_events_identity').on(table.network, table.signature, table.eventIndex),
+    index('chain_program_events_program_idx').on(table.network, table.programId, table.createdAt),
+  ],
+)
+
 export const indexerCheckpoints = pgTable('indexer_checkpoints', {
   network: text('network')
     .primaryKey()
@@ -280,6 +302,7 @@ export const communities = pgTable(
     name: text('name').notNull(),
     slug: text('slug').notNull(),
     description: text('description').notNull().default(''),
+    rules: text('rules').notNull().default(''),
     avatarStorageKey: text('avatar_storage_key'),
     coverStorageKey: text('cover_storage_key'),
     visibility: text('visibility', { enum: ['public', 'private'] })
@@ -337,6 +360,7 @@ export const posts = pgTable(
     communityId: uuid('community_id').references(() => communities.id, { onDelete: 'cascade' }),
     body: text('body').notNull().default(''),
     linkUrl: text('link_url'),
+    quotePostId: uuid('quote_post_id'),
     visibility: text('visibility', { enum: ['public', 'followers', 'community'] })
       .notNull()
       .default('public'),
@@ -376,7 +400,10 @@ export const postLikes = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.postId, table.userId] })],
+  (table) => [
+    primaryKey({ columns: [table.postId, table.userId] }),
+    index('post_likes_user_created_idx').on(table.userId, table.createdAt),
+  ],
 )
 
 export const postReposts = pgTable(
@@ -424,7 +451,10 @@ export const comments = pgTable(
     editedAt: timestamp('edited_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (table) => [index('comments_post_created_idx').on(table.postId, table.createdAt)],
+  (table) => [
+    index('comments_post_created_idx').on(table.postId, table.createdAt),
+    index('comments_author_created_idx').on(table.authorId, table.createdAt),
+  ],
 )
 
 export const commentLikes = pgTable(
@@ -574,6 +604,41 @@ export const postHashtags = pgTable(
   ],
 )
 
+export const contentReports = pgTable(
+  'content_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reporterId: uuid('reporter_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    targetType: text('target_type', { enum: ['post', 'comment', 'profile', 'community'] }).notNull(),
+    targetId: uuid('target_id').notNull(),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('content_reports_once').on(table.reporterId, table.targetType, table.targetId),
+    index('content_reports_created_idx').on(table.createdAt),
+  ],
+)
+
+export const demoMarks = pgTable(
+  'demo_marks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    batch: text('batch').notNull(),
+    entityType: text('entity_type', {
+      enum: ['user', 'post', 'community', 'comment'],
+    }).notNull(),
+    entityId: uuid('entity_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('demo_marks_entity').on(table.entityType, table.entityId),
+    index('demo_marks_batch_idx').on(table.batch),
+  ],
+)
+
 export const userMentions = pgTable(
   'user_mentions',
   {
@@ -599,6 +664,7 @@ export const schema = {
   blockchainAssets,
   walletTransactions,
   transactionStatusUpdates,
+  chainProgramEvents,
   indexerCheckpoints,
   sessions,
   emailVerificationTokens,
@@ -625,4 +691,6 @@ export const schema = {
   hashtags,
   postHashtags,
   userMentions,
+  contentReports,
+  demoMarks,
 }

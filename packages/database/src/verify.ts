@@ -8,6 +8,7 @@ const EXPECTED_TABLES = [
   'audit_logs',
   'auth_challenges',
   'blockchain_assets',
+  'chain_program_events',
   'blockchain_networks',
   'comment_likes',
   'comments',
@@ -51,6 +52,7 @@ const EXPECTED_INDEXES = [
   'posts_public_created_idx',
   'profiles_username_unique',
   'users_email_unique',
+  'chain_program_events_identity',
   'wallets_address_exact',
 ] as const
 

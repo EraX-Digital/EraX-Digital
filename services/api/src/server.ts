@@ -377,14 +377,14 @@ export async function buildServer(deps: ServerDeps) {
     clientIp,
   })
 
-  app.patch('/api/v1/profile', async (request) => {
+  app.patch('/api/v1/profile', authLimit, async (request) => {
     const session = await requireSession(request, true)
     const body = parse(profileBody, request.body)
     const profile = await accounts.updateProfile(session.user.id, body, clientIp(request))
     return { profile }
   })
 
-  app.post('/api/v1/profile/avatar', async (request) => {
+  app.post('/api/v1/profile/avatar', authLimit, async (request) => {
     const session = await requireSession(request, true)
     const file = await request.file()
     if (!file) throw new ApiError(400, 'invalid_input', 'Choose an image file')

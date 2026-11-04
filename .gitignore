@@ -20,3 +20,6 @@ contracts/evm/out
 contracts/evm/cache
 contracts/evm/broadcast
 contracts/evm/lib
+contracts/solana/target
+contracts/solana/keypairs
+contracts/solana/.anchor

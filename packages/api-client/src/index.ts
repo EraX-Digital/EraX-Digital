@@ -4,8 +4,12 @@ import {
   type ApiErrorBody,
   type CommentCard,
   type EmailDelivery,
+  type ActivityItem,
+  type ChainStatus,
   type Page,
   type PostCard,
+  type ProfileCommunityCard,
+  type ProfileReply,
   type PublicProfile,
   type PublicProfileCard,
   type PublicUser,
@@ -176,12 +180,59 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
     socialProfile(username: string) {
       return request<PublicProfileCard>(`/api/v1/profiles/${encodeURIComponent(username)}`)
     },
-    feed(kind: 'following' | 'discover', cursor?: string) {
+    feed(kind: 'following' | 'discover' | 'media', cursor?: string) {
       const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
       return request<Page<PostCard>>(`/api/v1/feeds/${kind}${query}`)
     },
-    profilePosts(username: string) {
-      return request<Page<PostCard>>(`/api/v1/profiles/${encodeURIComponent(username)}/posts`)
+    profilePosts(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<PostCard>>(`/api/v1/profiles/${encodeURIComponent(username)}/posts${query}`)
+    },
+    profileReplies(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<ProfileReply>>(`/api/v1/profiles/${encodeURIComponent(username)}/replies${query}`)
+    },
+    profileMedia(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<PostCard>>(`/api/v1/profiles/${encodeURIComponent(username)}/media${query}`)
+    },
+    profileLikes(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<PostCard>>(`/api/v1/profiles/${encodeURIComponent(username)}/likes${query}`)
+    },
+    profileCommunities(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<ProfileCommunityCard>>(
+        `/api/v1/profiles/${encodeURIComponent(username)}/communities${query}`,
+      )
+    },
+    profileActivity(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<ActivityItem>>(`/api/v1/profiles/${encodeURIComponent(username)}/activity${query}`)
+    },
+    profileMutuals(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<{ username: string; displayName: string; avatarUrl: string | null }>>(
+        `/api/v1/profiles/${encodeURIComponent(username)}/mutuals${query}`,
+      )
+    },
+    followers(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<{ username: string; displayName: string; avatarUrl: string | null }>>(
+        `/api/v1/profiles/${encodeURIComponent(username)}/followers${query}`,
+      )
+    },
+    following(username: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<{ username: string; displayName: string; avatarUrl: string | null }>>(
+        `/api/v1/profiles/${encodeURIComponent(username)}/following${query}`,
+      )
+    },
+    chainStatus() {
+      return request<ChainStatus>('/api/v1/socialfi/chain-status')
+    },
+    report(input: { targetType: 'post' | 'comment' | 'profile' | 'community'; targetId: string; reason: string }) {
+      return request<{ reported: boolean }>('/api/v1/reports', { method: 'POST', body: input, csrf: true })
     },
     post(id: string) {
       return request<PostCard>(`/api/v1/posts/${id}`)
@@ -192,6 +243,7 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
       visibility?: 'public' | 'followers' | 'community'
       communityId?: string | null
       mediaIds?: string[]
+      quotePostId?: string | null
     }) {
       return request<PostCard>('/api/v1/posts', {
         method: 'POST',
@@ -225,8 +277,9 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
         csrf: true,
       })
     },
-    bookmarks() {
-      return request<Page<PostCard>>('/api/v1/bookmarks')
+    bookmarks(cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<PostCard>>(`/api/v1/bookmarks${query}`)
     },
     follow(username: string, active: boolean) {
       return active
@@ -276,6 +329,7 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
         name: string
         slug: string
         description: string
+        rules: string
         visibility: 'public' | 'private'
         memberCount: number
         viewerRole: 'owner' | 'moderator' | 'member' | null
@@ -297,7 +351,7 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
     },
     updateCommunity(
       slug: string,
-      input: { name?: string; description?: string; visibility?: 'public' | 'private' },
+      input: { name?: string; description?: string; rules?: string; visibility?: 'public' | 'private' },
     ) {
       return request(`/api/v1/communities/${encodeURIComponent(slug)}`, {
         method: 'PATCH',
@@ -317,8 +371,15 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
         csrf: true,
       })
     },
-    communityPosts(slug: string) {
-      return request<Page<PostCard>>(`/api/v1/communities/${encodeURIComponent(slug)}/posts`)
+    removeMember(slug: string, username: string) {
+      return request<{ removed: boolean }>(
+        `/api/v1/communities/${encodeURIComponent(slug)}/members/${encodeURIComponent(username)}`,
+        { method: 'DELETE', csrf: true },
+      )
+    },
+    communityPosts(slug: string, cursor?: string) {
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+      return request<Page<PostCard>>(`/api/v1/communities/${encodeURIComponent(slug)}/posts${query}`)
     },
     communityMembers(slug: string) {
       return request<{ items: Array<{ username: string; displayName: string; role: string }> }>(

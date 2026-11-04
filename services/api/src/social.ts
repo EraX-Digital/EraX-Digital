@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import {
   auditLogs,
+  chainProgramEvents,
   comments,
+  contentReports,
   commentLikes,
   communities,
   communityInvites,
@@ -28,17 +30,22 @@ import {
   type Database,
 } from '@erax/database'
 import type {
+  ActivityItem,
+  ChainStatus,
   CommentCard,
   Page,
   PostCard,
   PostMedia,
+  ProfileCommunityCard,
+  ProfileReply,
   PublicProfileCard,
+  QuotePreview,
   SocialLink,
 } from '@erax/shared-types'
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { ApiError } from './errors'
 import { sniffMedia } from './media-bytes'
-import type { MediaStorage } from './media'
+import { storageUnavailable, type MediaStorage } from './media'
 import { cleanText, escapeLike, extractHashtags, extractMentions, httpUrl } from './text'
 
 type Cursor = { createdAt: string; id: string }
@@ -168,7 +175,20 @@ export function createSocialService(options: SocialServiceOptions) {
     viewerId: string | null,
     profile: typeof profiles.$inferSelect,
   ): Promise<boolean> {
-    if (viewerId && (await isBlocked(viewerId, profile.userId))) return false
+    if (viewerId && viewerId !== profile.userId) {
+      const rows = await db
+        .select({ blockerId: userBlocks.blockerId })
+        .from(userBlocks)
+        .where(
+          or(
+            and(eq(userBlocks.blockerId, viewerId), eq(userBlocks.blockedId, profile.userId)),
+            and(eq(userBlocks.blockerId, profile.userId), eq(userBlocks.blockedId, viewerId)),
+          ),
+        )
+        .limit(1)
+      if (rows[0]?.blockerId === profile.userId) return false
+      if (rows[0]?.blockerId === viewerId) return true
+    }
     if (profile.visibility === 'public') return true
     if (!viewerId) return false
     if (viewerId === profile.userId) return true
@@ -310,6 +330,26 @@ export function createSocialService(options: SocialServiceOptions) {
     const liked = new Set(mineLikes.map((row) => row.id))
     const reposted = new Set(mineReposts.map((row) => row.id))
     const bookmarked = new Set(mineBookmarks.map((row) => row.id))
+    const quoteIds = [
+      ...new Set(visible.map((row) => row.post.quotePostId).filter((id): id is string => Boolean(id))),
+    ]
+    const quoteRows = quoteIds.length
+      ? await db
+          .select({ post: posts, profile: profiles, community: communities })
+          .from(posts)
+          .innerJoin(profiles, eq(profiles.userId, posts.authorId))
+          .leftJoin(communities, eq(communities.id, posts.communityId))
+          .where(inArray(posts.id, quoteIds))
+      : []
+    const quoteById = new Map<string, QuotePreview>()
+    for (const row of quoteRows) {
+      if (!(await canViewPost(viewerId, row.post, row.profile, row.community))) continue
+      quoteById.set(row.post.id, {
+        id: row.post.id,
+        body: row.post.body,
+        author: authorOf(row.profile, apiOrigin),
+      })
+    }
     return visible.map((row) => ({
       id: row.post.id,
       body: row.post.body,
@@ -331,6 +371,7 @@ export function createSocialService(options: SocialServiceOptions) {
         reposted: reposted.has(row.post.id),
         bookmarked: bookmarked.has(row.post.id),
       },
+      quote: row.post.quotePostId ? (quoteById.get(row.post.quotePostId) ?? null) : null,
     }))
   }
 
@@ -396,7 +437,18 @@ export function createSocialService(options: SocialServiceOptions) {
         throw new ApiError(400, 'invalid_media', `File is larger than ${Math.floor(limit / 1_000_000)} MB`)
       }
       const key = `posts/${userId}/${randomUUID()}${sniffed.extension}`
-      await media.put(key, bytes)
+      try {
+        await media.put(key, bytes)
+      } catch (error) {
+        if (storageUnavailable(error)) {
+          throw new ApiError(
+            503,
+            'media_unavailable',
+            'Image and video upload is not available because media storage is not configured.',
+          )
+        }
+        throw error
+      }
       const inserted = await db
         .insert(mediaAssets)
         .values({
@@ -426,7 +478,7 @@ export function createSocialService(options: SocialServiceOptions) {
         throw new ApiError(404, 'profile_not_found', 'Profile was not found')
       }
       const userId = found.user.id
-      const [postCount, followerCount, followingCount, walletRows] = await Promise.all([
+      const [postCount, followerCount, followingCount, walletRows, mutualCount] = await Promise.all([
         db
           .select({ value: sql<number>`count(*)::int` })
           .from(posts)
@@ -449,6 +501,17 @@ export function createSocialService(options: SocialServiceOptions) {
               isNull(wallets.disconnectedAt),
             ),
           ),
+        viewerId && viewerId !== userId
+          ? db
+              .select({ value: sql<number>`count(*)::int` })
+              .from(follows)
+              .where(
+                and(
+                  eq(follows.followeeId, userId),
+                  sql`${follows.followerId} in (select followee_id from follows where follower_id = ${viewerId})`,
+                ),
+              )
+          : Promise.resolve([{ value: 0 }]),
       ])
       const links = Array.isArray(found.profile.socialLinks)
         ? (found.profile.socialLinks as SocialLink[])
@@ -479,6 +542,7 @@ export function createSocialService(options: SocialServiceOptions) {
           following: viewerId ? await isFollowing(viewerId, userId) : false,
           blocked: viewerId ? await isBlocked(viewerId, userId) : false,
           isSelf: viewerId === userId,
+          mutualCount: Number(mutualCount[0]?.value ?? 0),
         },
       }
     },
@@ -603,6 +667,7 @@ export function createSocialService(options: SocialServiceOptions) {
         visibility?: 'public' | 'followers' | 'community'
         communityId?: string | null
         mediaIds?: string[]
+        quotePostId?: string | null
       },
     ) {
       let body = ''
@@ -613,7 +678,12 @@ export function createSocialService(options: SocialServiceOptions) {
       }
       const link = input.linkUrl ? safeUrl(input.linkUrl) : null
       const mediaIds = [...new Set(input.mediaIds ?? [])]
-      if (!body && !link && mediaIds.length === 0) {
+      let quotePostId: string | null = null
+      if (input.quotePostId) {
+        const quoted = await requireVisiblePost(input.quotePostId, userId)
+        if (quoted.post.id === input.quotePostId) quotePostId = quoted.post.id
+      }
+      if (!body && !link && mediaIds.length === 0 && !quotePostId) {
         throw new ApiError(400, 'invalid_post', 'Add text, a link, or media')
       }
       if (mediaIds.length > 4) throw new ApiError(400, 'invalid_post', 'A post can include up to 4 files')
@@ -652,6 +722,7 @@ export function createSocialService(options: SocialServiceOptions) {
             communityId: community?.id,
             body,
             linkUrl: link,
+            quotePostId,
             visibility,
           })
           .returning()
@@ -785,7 +856,7 @@ export function createSocialService(options: SocialServiceOptions) {
 
     async feed(
       viewerId: string | null,
-      kind: 'following' | 'discover' | 'profile' | 'community',
+      kind: 'following' | 'discover' | 'profile' | 'community' | 'media' | 'profile-media',
       target: string | undefined,
       cursorValue: string | undefined,
       limitValue: string | undefined,
@@ -802,7 +873,7 @@ export function createSocialService(options: SocialServiceOptions) {
         eq(profiles.visibility, 'public'),
         or(isNull(posts.communityId), eq(communities.visibility, 'public')),
       ]
-      if (kind === 'profile') {
+      if (kind === 'profile' || kind === 'profile-media') {
         const found = await profileByUsername(target ?? '')
         if (!found || !(await canViewProfile(viewerId, found.profile))) {
           throw new ApiError(404, 'profile_not_found', 'Profile was not found')
@@ -826,6 +897,9 @@ export function createSocialService(options: SocialServiceOptions) {
           throw new ApiError(404, 'community_not_found', 'Community was not found')
         }
         filters.splice(0, filters.length, isNull(posts.deletedAt), eq(posts.communityId, community.id))
+      }
+      if (kind === 'media' || kind === 'profile-media') {
+        filters.push(sql`exists (select 1 from post_media where post_id = ${posts.id})`)
       }
       if (cursor) {
         filters.push(
@@ -1012,15 +1086,25 @@ export function createSocialService(options: SocialServiceOptions) {
 
     async createCommunity(
       userId: string,
-      input: { name: string; description?: string; visibility?: 'public' | 'private'; slug?: string },
+      input: {
+        name: string
+        description?: string
+        rules?: string
+        visibility?: 'public' | 'private'
+        slug?: string
+      },
     ) {
       const name = input.name.trim()
       if (name.length < 3 || name.length > 60) {
         throw new ApiError(400, 'invalid_community', 'Community name must be 3-60 characters')
       }
       const description = (input.description ?? '').trim()
+      const rules = (input.rules ?? '').trim()
       if (description.length > 500) {
         throw new ApiError(400, 'invalid_community', 'Description must be 500 characters or fewer')
+      }
+      if (rules.length > 2000) {
+        throw new ApiError(400, 'invalid_community', 'Rules must be 2000 characters or fewer')
       }
       const slug = input.slug ? input.slug.toLowerCase() : slugify(name)
       if (!/^[a-z0-9-]{3,40}$/.test(slug)) {
@@ -1035,6 +1119,7 @@ export function createSocialService(options: SocialServiceOptions) {
               name,
               slug,
               description,
+              rules,
               visibility: input.visibility ?? 'public',
             })
             .returning()
@@ -1063,7 +1148,7 @@ export function createSocialService(options: SocialServiceOptions) {
     async updateCommunity(
       userId: string,
       slug: string,
-      input: { name?: string; description?: string; visibility?: 'public' | 'private' },
+      input: { name?: string; description?: string; rules?: string; visibility?: 'public' | 'private' },
     ) {
       const community = await communityBySlug(db, slug)
       const member = await membership(community.id, userId)
@@ -1075,14 +1160,16 @@ export function createSocialService(options: SocialServiceOptions) {
       }
       const name = input.name === undefined ? community.name : input.name.trim()
       const description = input.description === undefined ? community.description : input.description.trim()
-      if (name.length < 3 || name.length > 60 || description.length > 500) {
-        throw new ApiError(400, 'invalid_community', 'Check the community name and description lengths')
+      const rules = input.rules === undefined ? community.rules : input.rules.trim()
+      if (name.length < 3 || name.length > 60 || description.length > 500 || rules.length > 2000) {
+        throw new ApiError(400, 'invalid_community', 'Check the community name, description, and rules lengths')
       }
       const updated = await db
         .update(communities)
         .set({
           name,
           description,
+          rules,
           visibility: member.role === 'owner' ? (input.visibility ?? community.visibility) : community.visibility,
           updatedAt: options.now(),
         })
@@ -1103,7 +1190,18 @@ export function createSocialService(options: SocialServiceOptions) {
       }
       if (bytes.length > IMAGE_LIMIT) throw new ApiError(400, 'invalid_media', 'Image is larger than 5 MB')
       const key = `communities/${community.id}/${kind}-${randomUUID()}${sniffed.extension}`
-      await media.put(key, bytes)
+      try {
+        await media.put(key, bytes)
+      } catch (error) {
+        if (storageUnavailable(error)) {
+          throw new ApiError(
+            503,
+            'media_unavailable',
+            'Image and video upload is not available because media storage is not configured.',
+          )
+        }
+        throw error
+      }
       const previous = kind === 'avatar' ? community.avatarStorageKey : community.coverStorageKey
       await db
         .update(communities)
@@ -1284,7 +1382,28 @@ export function createSocialService(options: SocialServiceOptions) {
         .innerJoin(profiles, eq(profiles.userId, communityMembers.userId))
         .where(eq(communityMembers.communityId, community.id))
         .orderBy(asc(communityMembers.createdAt))
+        .limit(100)
       return { items: rows.map((row) => ({ ...authorOf(row.profile, apiOrigin), role: row.role })) }
+    },
+
+    async removeMember(actorId: string, slug: string, username: string) {
+      const community = await communityBySlug(db, slug)
+      const actor = await membership(community.id, actorId)
+      if (!actor || (actor.role !== 'owner' && actor.role !== 'moderator')) {
+        throw new ApiError(403, 'forbidden', 'You cannot remove members')
+      }
+      const person = await profileByUsername(username)
+      if (!person) throw new ApiError(404, 'profile_not_found', 'Profile was not found')
+      const target = await membership(community.id, person.user.id)
+      if (!target) throw new ApiError(404, 'member_not_found', 'That person is not a member')
+      if (target.role === 'owner') throw new ApiError(403, 'forbidden', 'The owner cannot be removed')
+      if (actor.role === 'moderator' && target.role !== 'member') {
+        throw new ApiError(403, 'forbidden', 'Moderators can remove members only')
+      }
+      await db
+        .delete(communityMembers)
+        .where(and(eq(communityMembers.communityId, community.id), eq(communityMembers.userId, person.user.id)))
+      return { removed: true }
     },
 
     async openConversation(userId: string, username: string) {
@@ -1601,6 +1720,366 @@ export function createSocialService(options: SocialServiceOptions) {
       return result
     },
 
+    async listReplies(
+      viewerId: string | null,
+      username: string,
+      cursorValue?: string,
+      limitValue?: string,
+    ): Promise<Page<ProfileReply>> {
+      const found = await profileByUsername(username)
+      if (!found || !(await canViewProfile(viewerId, found.profile))) {
+        throw new ApiError(404, 'profile_not_found', 'Profile was not found')
+      }
+      const cursor = decodeCursor(cursorValue)
+      const limit = limited(limitValue)
+      const rows = await db
+        .select({ comment: comments, post: posts, profile: profiles, community: communities })
+        .from(comments)
+        .innerJoin(posts, eq(posts.id, comments.postId))
+        .innerJoin(profiles, eq(profiles.userId, posts.authorId))
+        .leftJoin(communities, eq(communities.id, posts.communityId))
+        .where(
+          and(
+            eq(comments.authorId, found.user.id),
+            isNull(comments.deletedAt),
+            isNull(posts.deletedAt),
+            cursor
+              ? or(
+                  lt(comments.createdAt, new Date(cursor.createdAt)),
+                  and(eq(comments.createdAt, new Date(cursor.createdAt)), lt(comments.id, cursor.id)),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(comments.createdAt), desc(comments.id))
+        .limit(limit + 5)
+      const visible: ProfileReply[] = []
+      for (const row of rows) {
+        if (!(await canViewPost(viewerId, row.post, row.profile, row.community))) continue
+        visible.push({
+          id: row.comment.id,
+          body: row.comment.body,
+          createdAt: row.comment.createdAt.toISOString(),
+          postId: row.post.id,
+        })
+        if (visible.length > limit) break
+      }
+      const page = visible.slice(0, limit)
+      const next = visible[limit]
+      return {
+        items: page,
+        nextCursor: next ? encodeCursor({ createdAt: next.createdAt, id: next.id }) : null,
+      }
+    },
+
+    async listLikedPosts(viewerId: string | null, username: string, cursorValue?: string, limitValue?: string) {
+      const found = await profileByUsername(username)
+      if (!found || !(await canViewProfile(viewerId, found.profile))) {
+        throw new ApiError(404, 'profile_not_found', 'Profile was not found')
+      }
+      if (viewerId !== found.user.id) {
+        throw new ApiError(403, 'likes_private', 'Likes are visible only to the account owner')
+      }
+      const cursor = decodeCursor(cursorValue)
+      const limit = limited(limitValue)
+      const rows = await db
+        .select({ post: posts, profile: profiles, community: communities, createdAt: postLikes.createdAt })
+        .from(postLikes)
+        .innerJoin(posts, eq(posts.id, postLikes.postId))
+        .innerJoin(profiles, eq(profiles.userId, posts.authorId))
+        .leftJoin(communities, eq(communities.id, posts.communityId))
+        .where(
+          and(
+            eq(postLikes.userId, found.user.id),
+            isNull(posts.deletedAt),
+            cursor
+              ? or(
+                  lt(postLikes.createdAt, new Date(cursor.createdAt)),
+                  and(eq(postLikes.createdAt, new Date(cursor.createdAt)), lt(posts.id, cursor.id)),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(postLikes.createdAt), desc(posts.id))
+        .limit(limit + 1)
+      const cards = await presentPosts(rows.slice(0, limit), viewerId)
+      const next = rows[limit]
+      return {
+        items: cards,
+        nextCursor: next ? encodeCursor({ createdAt: next.createdAt.toISOString(), id: next.post.id }) : null,
+      }
+    },
+
+    async listProfileCommunities(
+      viewerId: string | null,
+      username: string,
+      cursorValue?: string,
+      limitValue?: string,
+    ): Promise<Page<ProfileCommunityCard>> {
+      const found = await profileByUsername(username)
+      if (!found || !(await canViewProfile(viewerId, found.profile))) {
+        throw new ApiError(404, 'profile_not_found', 'Profile was not found')
+      }
+      const cursor = decodeCursor(cursorValue)
+      const limit = limited(limitValue, 20)
+      const rows = await db
+        .select({ community: communities, role: communityMembers.role, createdAt: communityMembers.createdAt })
+        .from(communityMembers)
+        .innerJoin(communities, eq(communities.id, communityMembers.communityId))
+        .where(
+          and(
+            eq(communityMembers.userId, found.user.id),
+            or(
+              eq(communities.visibility, 'public'),
+              viewerId === found.user.id ? sql`true` : sql`false`,
+              viewerId
+                ? sql`exists (select 1 from community_members m where m.community_id = ${communities.id} and m.user_id = ${viewerId})`
+                : sql`false`,
+            ),
+            cursor
+              ? or(
+                  lt(communityMembers.createdAt, new Date(cursor.createdAt)),
+                  and(eq(communityMembers.createdAt, new Date(cursor.createdAt)), lt(communities.id, cursor.id)),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(communityMembers.createdAt), desc(communities.id))
+        .limit(limit + 1)
+      const page = rows.slice(0, limit)
+      const items: ProfileCommunityCard[] = []
+      for (const row of page) {
+        const count = await db
+          .select({ value: sql<number>`count(*)::int` })
+          .from(communityMembers)
+          .where(eq(communityMembers.communityId, row.community.id))
+        items.push({
+          slug: row.community.slug,
+          name: row.community.name,
+          description: row.community.description,
+          rules: row.community.rules,
+          visibility: row.community.visibility,
+          role: row.role,
+          memberCount: Number(count[0]?.value ?? 0),
+        })
+      }
+      const next = rows[limit]
+      return {
+        items,
+        nextCursor: next ? encodeCursor({ createdAt: next.createdAt.toISOString(), id: next.community.id }) : null,
+      }
+    },
+
+    async listActivity(
+      viewerId: string | null,
+      username: string,
+      cursorValue?: string,
+      limitValue?: string,
+    ): Promise<Page<ActivityItem>> {
+      const found = await profileByUsername(username)
+      if (!found || !(await canViewProfile(viewerId, found.profile))) {
+        throw new ApiError(404, 'profile_not_found', 'Profile was not found')
+      }
+      if (viewerId !== found.user.id) {
+        throw new ApiError(403, 'activity_private', 'Activity is visible only to the account owner')
+      }
+      const cursor = decodeCursor(cursorValue)
+      const limit = limited(limitValue)
+      const userId = found.user.id
+      const [postRows, commentRows, followRows] = await Promise.all([
+        db
+          .select({ id: posts.id, at: posts.createdAt, body: posts.body })
+          .from(posts)
+          .where(
+            and(
+              eq(posts.authorId, userId),
+              isNull(posts.deletedAt),
+              cursor
+                ? or(
+                    lt(posts.createdAt, new Date(cursor.createdAt)),
+                    and(eq(posts.createdAt, new Date(cursor.createdAt)), lt(posts.id, cursor.id)),
+                  )
+                : undefined,
+            ),
+          )
+          .orderBy(desc(posts.createdAt), desc(posts.id))
+          .limit(limit + 1),
+        db
+          .select({ id: comments.id, at: comments.createdAt, body: comments.body, postId: comments.postId })
+          .from(comments)
+          .where(
+            and(
+              eq(comments.authorId, userId),
+              isNull(comments.deletedAt),
+              cursor
+                ? or(
+                    lt(comments.createdAt, new Date(cursor.createdAt)),
+                    and(eq(comments.createdAt, new Date(cursor.createdAt)), lt(comments.id, cursor.id)),
+                  )
+                : undefined,
+            ),
+          )
+          .orderBy(desc(comments.createdAt), desc(comments.id))
+          .limit(limit + 1),
+        db
+          .select({ id: follows.followeeId, at: follows.createdAt, username: profiles.username })
+          .from(follows)
+          .innerJoin(profiles, eq(profiles.userId, follows.followeeId))
+          .where(
+            and(
+              eq(follows.followerId, userId),
+              cursor
+                ? or(
+                    lt(follows.createdAt, new Date(cursor.createdAt)),
+                    and(eq(follows.createdAt, new Date(cursor.createdAt)), lt(follows.followeeId, cursor.id)),
+                  )
+                : undefined,
+            ),
+          )
+          .orderBy(desc(follows.createdAt), desc(follows.followeeId))
+          .limit(limit + 1),
+      ])
+      const merged: ActivityItem[] = [
+        ...postRows.map((row) => ({
+          id: row.id,
+          kind: 'post' as const,
+          createdAt: row.at.toISOString(),
+          label: row.body ? row.body.slice(0, 180) : 'Published a post',
+          href: `/app/posts/${row.id}`,
+        })),
+        ...commentRows.map((row) => ({
+          id: row.id,
+          kind: 'comment' as const,
+          createdAt: row.at.toISOString(),
+          label: row.body.slice(0, 180),
+          href: `/app/posts/${row.postId}`,
+        })),
+        ...followRows.map((row) => ({
+          id: row.id,
+          kind: 'follow' as const,
+          createdAt: row.at.toISOString(),
+          label: `Followed @${row.username}`,
+          href: `/app/u/${row.username}`,
+        })),
+      ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : a.id < b.id ? 1 : -1))
+      const page = merged.slice(0, limit)
+      const next = merged[limit]
+      return {
+        items: page,
+        nextCursor: next ? encodeCursor({ createdAt: next.createdAt, id: next.id }) : null,
+      }
+    },
+
+    async listMutuals(viewerId: string | null, username: string, cursorValue?: string, limitValue?: string) {
+      if (!viewerId) throw new ApiError(401, 'unauthenticated', 'Sign in required')
+      const found = await profileByUsername(username)
+      if (!found || !(await canViewProfile(viewerId, found.profile))) {
+        throw new ApiError(404, 'profile_not_found', 'Profile was not found')
+      }
+      const cursor = decodeCursor(cursorValue)
+      const limit = limited(limitValue)
+      const rows = await db
+        .select({ profile: profiles, createdAt: follows.createdAt, id: follows.followerId })
+        .from(follows)
+        .innerJoin(profiles, eq(profiles.userId, follows.followerId))
+        .where(
+          and(
+            eq(follows.followeeId, found.user.id),
+            sql`${follows.followerId} in (select followee_id from follows where follower_id = ${viewerId})`,
+            cursor
+              ? or(
+                  lt(follows.createdAt, new Date(cursor.createdAt)),
+                  and(eq(follows.createdAt, new Date(cursor.createdAt)), lt(follows.followerId, cursor.id)),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(follows.createdAt), desc(follows.followerId))
+        .limit(limit + 1)
+      const page = await pageFrom(
+        rows.map((row) => ({ ...authorOf(row.profile, apiOrigin), createdAt: row.createdAt, id: row.id })),
+        limit,
+      )
+      return {
+        items: page.items.map(({ createdAt: _createdAt, id: _id, ...person }) => person),
+        nextCursor: page.nextCursor,
+      }
+    },
+
+    async reportContent(
+      userId: string,
+      input: { targetType: 'post' | 'comment' | 'profile' | 'community'; targetId: string; reason: string },
+    ) {
+      let reason = ''
+      try {
+        reason = cleanText(input.reason, 500)
+      } catch {
+        throw new ApiError(400, 'invalid_report', 'A report must be 3-500 characters')
+      }
+      if (reason.length < 3) throw new ApiError(400, 'invalid_report', 'A report must be 3-500 characters')
+      let targetId = ''
+      if (input.targetType === 'profile') {
+        const found = await profileByUsername(input.targetId)
+        if (!found || !(await canViewProfile(userId, found.profile))) {
+          throw new ApiError(404, 'profile_not_found', 'Profile was not found')
+        }
+        if (found.user.id === userId) throw new ApiError(400, 'cannot_report_self', 'You cannot report yourself')
+        targetId = found.user.id
+      } else if (input.targetType === 'community') {
+        const community = await communityBySlug(db, input.targetId)
+        const member = await membership(community.id, userId)
+        if (community.visibility === 'private' && !member) {
+          throw new ApiError(404, 'community_not_found', 'Community was not found')
+        }
+        targetId = community.id
+      } else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.targetId)) {
+        throw new ApiError(400, 'invalid_report', 'That report target was not found')
+      } else if (input.targetType === 'post') {
+        const row = await requireVisiblePost(input.targetId, userId)
+        if (row.post.authorId === userId) throw new ApiError(400, 'cannot_report_self', 'You cannot report your own post')
+        targetId = row.post.id
+      } else if (input.targetType === 'comment') {
+        const rows = await db
+          .select({ comment: comments, post: posts, profile: profiles, community: communities })
+          .from(comments)
+          .innerJoin(posts, eq(posts.id, comments.postId))
+          .innerJoin(profiles, eq(profiles.userId, posts.authorId))
+          .leftJoin(communities, eq(communities.id, posts.communityId))
+          .where(eq(comments.id, input.targetId))
+          .limit(1)
+        const row = rows[0]
+        if (!row || row.comment.deletedAt || !(await canViewPost(userId, row.post, row.profile, row.community))) {
+          throw new ApiError(404, 'comment_not_found', 'Comment was not found')
+        }
+        if (row.comment.authorId === userId) {
+          throw new ApiError(400, 'cannot_report_self', 'You cannot report your own comment')
+        }
+        targetId = row.comment.id
+      }
+      await db
+        .insert(contentReports)
+        .values({ reporterId: userId, targetType: input.targetType, targetId, reason })
+        .onConflictDoNothing()
+      await writeAudit(db, {
+        actorUserId: userId,
+        action: 'content.reported',
+        targetType: input.targetType,
+        targetId,
+      })
+      return { reported: true }
+    },
+
+    async chainStatus(): Promise<ChainStatus> {
+      const rows = await db.select({ value: sql<number>`count(*)::int` }).from(chainProgramEvents)
+      return {
+        creatorRegistration: 'not_enabled',
+        tips: 'not_enabled',
+        message:
+          'On-chain creator registration and SOL or ETH tips are not enabled. Program deployments have no recorded signature.',
+        indexedEventCount: Number(rows[0]?.value ?? 0),
+      }
+    },
+
     async authorizeMedia(key: string, viewerId: string | null) {
       const assetRows = await db.select().from(mediaAssets).where(eq(mediaAssets.storageKey, key)).limit(1)
       const asset = assetRows[0]
@@ -1683,6 +2162,7 @@ async function communityCard(
     name: community.name,
     slug: community.slug,
     description: community.description,
+    rules: community.rules,
     visibility: community.visibility,
     createdAt: community.createdAt.toISOString(),
     avatarUrl: mediaUrl(apiOrigin, community.avatarStorageKey),
@@ -1762,47 +2242,43 @@ async function followingFeed(
   limit: number,
   present: SocialPresent,
 ): Promise<Page<PostCard>> {
-  const followed = await db.select({ id: follows.followeeId }).from(follows).where(eq(follows.followerId, viewerId))
-  const ids = [viewerId, ...followed.map((row) => row.id)]
-  const authored = await db
-    .select({ id: posts.id, at: posts.createdAt })
-    .from(posts)
-    .where(and(inArray(posts.authorId, ids), isNull(posts.deletedAt)))
-    .orderBy(desc(posts.createdAt))
-    .limit(80)
-  const reposted = await db
-    .select({ id: postReposts.postId, at: postReposts.createdAt })
-    .from(postReposts)
-    .where(inArray(postReposts.userId, ids))
-    .orderBy(desc(postReposts.createdAt))
-    .limit(80)
-  const activity = new Map<string, Date>()
-  for (const row of [...authored, ...reposted]) {
-    const current = activity.get(row.id)
-    if (!current || row.at > current) activity.set(row.id, row.at)
-  }
-  let ranked = [...activity.entries()]
-    .map(([id, at]) => ({ id, at }))
-    .sort((a, b) => b.at.getTime() - a.at.getTime() || (a.id < b.id ? 1 : -1))
-  if (cursor) {
-    const at = new Date(cursor.createdAt).getTime()
-    ranked = ranked.filter((row) => row.at.getTime() < at || (row.at.getTime() === at && row.id < cursor.id))
-  }
-  const page = ranked.slice(0, limit + 1)
-  if (page.length === 0) return { items: [], nextCursor: null }
-  const loaded = await db
+  const rows = await db
     .select({ post: posts, profile: profiles, community: communities })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
     .leftJoin(communities, eq(communities.id, posts.communityId))
-    .where(inArray(posts.id, page.slice(0, limit).map((row) => row.id)))
-  const order = new Map(page.slice(0, limit).map((row, index) => [row.id, index]))
-  loaded.sort((a, b) => (order.get(a.post.id) ?? 0) - (order.get(b.post.id) ?? 0))
-  const cards = await present(loaded, viewerId)
-  const next = page[limit]
+    .where(
+      and(
+        isNull(posts.deletedAt),
+        sql`(
+          ${posts.authorId} = ${viewerId}
+          or ${posts.authorId} in (select followee_id from follows where follower_id = ${viewerId})
+          or ${posts.id} in (
+            select post_id from post_reposts
+            where user_id = ${viewerId}
+               or user_id in (select followee_id from follows where follower_id = ${viewerId})
+          )
+        )`,
+        sql`not exists (
+          select 1 from user_blocks b
+          where (b.blocker_id = ${viewerId} and b.blocked_id = ${posts.authorId})
+             or (b.blocked_id = ${viewerId} and b.blocker_id = ${posts.authorId})
+        )`,
+        cursor
+          ? or(
+              lt(posts.createdAt, new Date(cursor.createdAt)),
+              and(eq(posts.createdAt, new Date(cursor.createdAt)), lt(posts.id, cursor.id)),
+            )
+          : undefined,
+      ),
+    )
+    .orderBy(desc(posts.createdAt), desc(posts.id))
+    .limit(limit + 1)
+  const cards = await present(rows.slice(0, limit), viewerId)
+  const next = rows[limit]
   return {
     items: cards,
-    nextCursor: next ? encodeCursor({ createdAt: next.at.toISOString(), id: next.id }) : null,
+    nextCursor: next ? encodeCursor({ createdAt: next.post.createdAt.toISOString(), id: next.post.id }) : null,
   }
 }
 

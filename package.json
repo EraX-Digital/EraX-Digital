@@ -18,6 +18,10 @@
     "test": "vitest run",
     "db:migrate": "pnpm --filter @erax/database migrate",
     "db:seed": "pnpm --filter @erax/database seed",
+    "db:seed:socialfi": "pnpm --filter @erax/database seed:socialfi",
+    "db:seed:socialfi:staging": "pnpm --filter @erax/database seed:socialfi -- --staging",
+    "db:seed:socialfi:production": "pnpm --filter @erax/database seed:socialfi -- --production",
+    "db:seed:socialfi:cleanup": "pnpm --filter @erax/database seed:socialfi -- --cleanup",
     "db:verify": "pnpm --filter @erax/database verify",
     "db:verify:embedded": "pnpm --filter @erax/database verify:embedded"
   },

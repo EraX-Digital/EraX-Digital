@@ -1,0 +1,17 @@
+[package]
+name = "erax-solana-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anchor-lang = { workspace = true }
+creator_registry = { path = "../programs/creator_registry" }
+creator_tipping = { path = "../programs/creator_tipping" }
+solana-program-test = "=2.3.13"
+solana-sdk = "=2.3.1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "programs"
+path = "programs.rs"

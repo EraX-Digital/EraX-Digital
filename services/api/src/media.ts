@@ -24,6 +24,10 @@ export type MediaStorage = {
   remove(key: string): Promise<void>
 }
 
+export function storageUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('Media storage is not configured')
+}
+
 export function createUnavailableStorage(): MediaStorage {
   const fail = () => Promise.reject(new Error('Media storage is not configured on this deployment'))
   return { driver: 'none', put: fail, read: () => Promise.resolve(null), remove: fail }

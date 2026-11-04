@@ -292,6 +292,7 @@ export type SolanaReader = {
   estimateFee(payer: string, instructions: SerializedInstruction[]): Promise<bigint>
   getSignatureStatus(signature: string): Promise<'pending' | 'finalized' | 'failed'>
   getParsedTransfers(signature: string): Promise<ParsedTransfer[] | null>
+  getTransactionLogs?(signature: string): Promise<readonly string[] | null>
   getRecentSignatures(
     address: string,
   ): Promise<Array<{ signature: string; slot: number | null; err: boolean; blockTime: number | null }>>
@@ -413,6 +414,19 @@ export function createSolanaReader(rpcUrl: string): SolanaReader {
         throw rpcFailure(error)
       }
     },
+    async getTransactionLogs(signature) {
+      try {
+        const transaction = await withRpcRetry(() =>
+          connection.getTransaction(signature, {
+            commitment: 'finalized',
+            maxSupportedTransactionVersion: 0,
+          }),
+        )
+        return transaction?.meta?.logMessages ?? null
+      } catch (error) {
+        throw rpcFailure(error)
+      }
+    },
     async getParsedTransfers(signature) {
       try {
         const transaction = await withRpcRetry(() =>
@@ -467,5 +481,6 @@ export function createSolanaIndexerReader(rpcUrl: string) {
       return reader.getRecentSignatures(address)
     },
     getParsedTransfers: reader.getParsedTransfers,
+    getTransactionLogs: reader.getTransactionLogs,
   }
 }

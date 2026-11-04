@@ -1,0 +1,15 @@
+[workspace]
+members = [
+  "programs/creator_registry",
+  "programs/creator_tipping",
+  "tests",
+]
+resolver = "2"
+
+[workspace.dependencies]
+anchor-lang = "=0.31.3"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1

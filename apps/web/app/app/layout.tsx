@@ -3,8 +3,9 @@
 import type { PublicProfile, PublicUser } from '@erax/shared-types'
 import { ApiClientError } from '@erax/api-client'
 import { BrandMark } from '@erax/ui'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { ThemeToggle } from '../../components/theme-toggle'
 import { api } from '../../lib/api'
 
 const links = [
@@ -20,6 +21,7 @@ const links = [
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [session, setSession] = useState<{ user: PublicUser; profile: PublicProfile } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
@@ -83,7 +85,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
         <BrandMark href="/app" label="Social" />
         <nav className="erax-side-nav">
           {links.map(([href, label]) => (
-            <a key={href} href={href}>
+            <a key={href} href={href} aria-current={pathname === href ? 'page' : undefined}>
               {label}
               {label === 'Notifications' && unread > 0 ? <span className="erax-badge">{unread}</span> : null}
               {label === 'Messages' && messages > 0 ? <span className="erax-badge">{messages}</span> : null}
@@ -91,7 +93,12 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
           ))}
           <a href={`/app/u/${session.profile.username}`}>Profile</a>
           <a href="/app/settings">Settings</a>
+          <a href="/about">About</a>
+          <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
+            EraX Digital
+          </a>
         </nav>
+        <ThemeToggle />
         <button className="erax-button" type="button" onClick={() => (window.location.href = '/app')}>
           Create post
         </button>
@@ -100,6 +107,39 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
         </button>
       </aside>
       <main className="erax-main">{children}</main>
+      <aside className="erax-rail">
+        <section className="erax-card">
+          <p className="erax-kicker">EraX Social</p>
+          <p>
+            <a href={`/app/u/${session.profile.username}`}>@{session.profile.username}</a>
+          </p>
+          <p className="erax-muted">Connect. Create. Own.</p>
+        </section>
+        <section className="erax-card">
+          <h2>Wallets</h2>
+          <p className="erax-muted">
+            Posting does not require a wallet. Linked addresses are signature-verified public keys.
+          </p>
+          <p>
+            <a href="/wallet">Open wallet</a>
+          </p>
+          <p className="erax-muted">
+            Creator registration and SOL or ETH tips are not enabled. The programs are not deployed.
+          </p>
+        </section>
+        <section className="erax-card">
+          <h2>Company</h2>
+          <p className="erax-muted">EraX Digital builds the ecosystem. This app is EraX Social.</p>
+          <p>
+            <a href="/about">About EraX</a>
+          </p>
+          <p>
+            <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
+              erax.digital
+            </a>
+          </p>
+        </section>
+      </aside>
       <nav className="erax-bottom-nav">
         <a href="/app">Home</a>
         <a href="/wallet">Wallet</a>
@@ -107,6 +147,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
         <a href="/app/communities">Communities</a>
         <a href="/app/messages">Messages</a>
         <a href="/app/notifications">Alerts</a>
+        <a href={`/app/u/${session.profile.username}`}>Profile</a>
       </nav>
     </div>
   )

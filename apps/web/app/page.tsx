@@ -1,4 +1,5 @@
 import { BrandMark, SecondaryLink } from '@erax/ui'
+import { ThemeToggle } from '../components/theme-toggle'
 
 const available = [
   'Create an account with email and a password. A wallet is not required.',
@@ -18,6 +19,11 @@ export default function HomePage() {
       <header className="erax-header">
         <BrandMark />
         <nav className="erax-nav">
+          <a href="/about">About</a>
+          <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
+            EraX Digital
+          </a>
+          <ThemeToggle />
           <a href="/login">Sign in</a>
           <a className="erax-button" href="/register">
             Create account
@@ -57,6 +63,18 @@ export default function HomePage() {
           </ul>
         </article>
       </section>
+      <footer className="erax-footer">
+        <p>EraX Social is a product of EraX Digital. Connect. Create. Own.</p>
+        <p>
+          <a href="/about">About</a>
+          {' · '}
+          <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
+            erax.digital
+          </a>
+          {' · '}
+          <a href="mailto:contact@erax.digital">contact@erax.digital</a>
+        </p>
+      </footer>
     </main>
   )
 }

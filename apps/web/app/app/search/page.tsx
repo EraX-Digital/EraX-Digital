@@ -3,7 +3,7 @@
 import { ApiClientError } from '@erax/api-client'
 import type { PostCard } from '@erax/shared-types'
 import { Alert, Button, EmptyState, TextField } from '@erax/ui'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PostCardView } from '../../../components/post-card'
 import { api } from '../../../lib/api'
 import { emptyCopy } from '../../../lib/view-model'
@@ -28,6 +28,16 @@ export default function SearchPage() {
       setError(caught instanceof ApiClientError ? caught.message : 'Search failed')
     }
   }
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q')
+    if (!q) return
+    setQuery(q)
+    api
+      .search(q)
+      .then(setResult)
+      .catch((caught: unknown) => setError(caught instanceof ApiClientError ? caught.message : 'Search failed'))
+  }, [])
 
   const empty = emptyCopy('search')
   const nothing =

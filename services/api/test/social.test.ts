@@ -355,4 +355,126 @@ describe('social platform', () => {
     }
     expect(limitedStatus).toBe(429)
   })
+
+  it('paginates public posts and keeps a quote on the new post', async () => {
+    const ada = await account('page')
+    const created = []
+    for (let index = 0; index < 3; index += 1) {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/api/v1/posts',
+        headers: auth(ada),
+        payload: { body: `page note ${index} ${randomUUID()}` },
+      })
+      expect(response.statusCode).toBe(200)
+      created.push(response.json().id as string)
+    }
+    const first = await context.app.inject({ method: 'GET', url: '/api/v1/feeds/discover?limit=1' })
+    expect(first.statusCode).toBe(200)
+    expect(first.json().items).toHaveLength(1)
+    expect(first.json().nextCursor).toBeTruthy()
+    const second = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/feeds/discover?limit=1&cursor=${encodeURIComponent(first.json().nextCursor)}`,
+    })
+    expect(second.json().items[0].id).not.toBe(first.json().items[0].id)
+
+    const quote = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/posts',
+      headers: auth(ada),
+      payload: { body: 'quoting the note', quotePostId: created[0] },
+    })
+    expect(quote.statusCode).toBe(200)
+    expect(quote.json().quote.id).toBe(created[0])
+  })
+
+  it('keeps likes private, stores a report, and counts a mutual follow once', async () => {
+    const ada = await account('like')
+    const grace = await account('mutu')
+    const noah = await account('noam')
+    const post = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/posts',
+      headers: auth(ada),
+      payload: { body: `visible note ${randomUUID()}` },
+    })
+    const postId = post.json().id as string
+    await context.app.inject({
+      method: 'POST',
+      url: `/api/v1/posts/${postId}/like`,
+      headers: auth(grace),
+    })
+    const hidden = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/profiles/${grace.username}/likes`,
+      headers: auth(ada, false),
+    })
+    expect(hidden.statusCode).toBe(403)
+    const own = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/profiles/${grace.username}/likes`,
+      headers: auth(grace, false),
+    })
+    expect(own.statusCode).toBe(200)
+    expect(own.json().items.some((item: { id: string }) => item.id === postId)).toBe(true)
+
+    const report = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/reports',
+      headers: auth(grace),
+      payload: { targetType: 'post', targetId: postId, reason: 'This demo report should be stored.' },
+    })
+    expect(report.statusCode).toBe(200)
+    expect(report.json().reported).toBe(true)
+    const again = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/reports',
+      headers: auth(grace),
+      payload: { targetType: 'post', targetId: postId, reason: 'This demo report should be stored.' },
+    })
+    expect(again.statusCode).toBe(200)
+
+    await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/follows',
+      headers: auth(ada),
+      payload: { username: grace.username },
+    })
+    await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/follows',
+      headers: auth(ada),
+      payload: { username: grace.username },
+    })
+    await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/follows',
+      headers: auth(noah),
+      payload: { username: grace.username },
+    })
+    await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/follows',
+      headers: auth(ada),
+      payload: { username: noah.username },
+    })
+    const profile = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/profiles/${grace.username}`,
+      headers: auth(ada, false),
+    })
+    expect(profile.json().stats.followers).toBe(2)
+    expect(profile.json().viewer.mutualCount).toBe(1)
+    const activity = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/profiles/${grace.username}/activity`,
+      headers: auth(ada, false),
+    })
+    expect(activity.statusCode).toBe(403)
+    const chain = await context.app.inject({ method: 'GET', url: '/api/v1/socialfi/chain-status' })
+    expect(chain.json().creatorRegistration).toBe('not_enabled')
+    expect(chain.json().tips).toBe('not_enabled')
+    expect(typeof chain.json().indexedEventCount).toBe('number')
+  })
 })

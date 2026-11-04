@@ -1,0 +1,11 @@
+{
+  "network": "devnet",
+  "cluster": "https://api.devnet.solana.com",
+  "status": "not_deployed",
+  "transactionSignature": null,
+  "programs": {
+    "creator_registry": { "programId": "CW9G6KwD29Zu6MdEFXfJ4c31zWvispLY5hNovprn2Qv1", "transactionSignature": null },
+    "creator_tipping": { "programId": "5Z4UJ9gbtfZc4Ha7c4ibHYsd2V77anFpv7KHnqjf5ANV", "transactionSignature": null }
+  },
+  "note": "Devnet deployment has not been approved. No signature is recorded."
+}

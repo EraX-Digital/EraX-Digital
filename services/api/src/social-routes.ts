@@ -13,6 +13,7 @@ const postBody = z.object({
   visibility: z.enum(['public', 'followers', 'community']).optional(),
   communityId: uuid.nullable().optional(),
   mediaIds: z.array(uuid).max(4).optional(),
+  quotePostId: uuid.nullable().optional(),
 })
 
 const commentBody = z.object({
@@ -23,8 +24,15 @@ const commentBody = z.object({
 const communityBody = z.object({
   name: z.string().min(3).max(60),
   description: z.string().max(500).optional(),
+  rules: z.string().max(2000).optional(),
   visibility: z.enum(['public', 'private']).optional(),
   slug: z.string().min(3).max(40).optional(),
+})
+
+const reportBody = z.object({
+  targetType: z.enum(['post', 'comment', 'profile', 'community']),
+  targetId: z.string().min(3).max(80),
+  reason: z.string().min(3).max(500),
 })
 
 const usernameBody = z.object({ username: z.string().min(3).max(20) })
@@ -101,6 +109,34 @@ export function registerSocialRoutes(app: FastifyInstance, deps: Deps) {
     const query = queryOf(request)
     return social.listFollows(await optionalViewer(request), paramsOf(request).username ?? '', 'following', query.cursor, query.limit)
   })
+  app.get('/api/v1/profiles/:username/replies', async (request) => {
+    const query = queryOf(request)
+    return social.listReplies(await optionalViewer(request), paramsOf(request).username ?? '', query.cursor, query.limit)
+  })
+  app.get('/api/v1/profiles/:username/media', async (request) => {
+    const query = queryOf(request)
+    return social.feed(await optionalViewer(request), 'profile-media', paramsOf(request).username, query.cursor, query.limit)
+  })
+  app.get('/api/v1/profiles/:username/likes', async (request) => {
+    const query = queryOf(request)
+    return social.listLikedPosts(await optionalViewer(request), paramsOf(request).username ?? '', query.cursor, query.limit)
+  })
+  app.get('/api/v1/profiles/:username/communities', async (request) => {
+    const query = queryOf(request)
+    return social.listProfileCommunities(await optionalViewer(request), paramsOf(request).username ?? '', query.cursor, query.limit)
+  })
+  app.get('/api/v1/profiles/:username/activity', async (request) => {
+    const query = queryOf(request)
+    return social.listActivity(await optionalViewer(request), paramsOf(request).username ?? '', query.cursor, query.limit)
+  })
+  app.get('/api/v1/profiles/:username/mutuals', async (request) => {
+    const query = queryOf(request)
+    return social.listMutuals(await optionalViewer(request), paramsOf(request).username ?? '', query.cursor, query.limit)
+  })
+  app.get('/api/v1/socialfi/chain-status', async () => social.chainStatus())
+  app.post('/api/v1/reports', limit, async (request) =>
+    social.reportContent(await viewer(request, true), parse(reportBody, request.body)),
+  )
 
   app.post('/api/v1/follows', limit, async (request) => {
     const userId = await viewer(request, true)
@@ -146,6 +182,10 @@ export function registerSocialRoutes(app: FastifyInstance, deps: Deps) {
     const query = queryOf(request)
     return social.feed(await optionalViewer(request), 'discover', undefined, query.cursor, query.limit)
   })
+  app.get('/api/v1/feeds/media', async (request) => {
+    const query = queryOf(request)
+    return social.feed(await optionalViewer(request), 'media', undefined, query.cursor, query.limit)
+  })
 
   app.get('/api/v1/posts/:id/comments', async (request) => {
     const query = queryOf(request)
@@ -190,6 +230,9 @@ export function registerSocialRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/api/v1/communities/:slug/members', async (request) => social.listMembers(await optionalViewer(request), paramsOf(request).slug ?? ''))
   app.post('/api/v1/communities/:slug/join', limit, async (request) => social.joinCommunity(await viewer(request, true), paramsOf(request).slug ?? ''))
   app.delete('/api/v1/communities/:slug/membership', limit, async (request) => social.leaveCommunity(await viewer(request, true), paramsOf(request).slug ?? ''))
+  app.delete('/api/v1/communities/:slug/members/:username', limit, async (request) =>
+    social.removeMember(await viewer(request, true), paramsOf(request).slug ?? '', paramsOf(request).username ?? ''),
+  )
   app.post('/api/v1/communities/:slug/invites', limit, async (request) =>
     social.invite(await viewer(request, true), paramsOf(request).slug ?? '', parse(usernameBody, request.body).username),
   )

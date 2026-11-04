@@ -1,7 +1,7 @@
 'use client'
 
 import { ApiClientError } from '@erax/api-client'
-import type { PublicProfile } from '@erax/shared-types'
+import type { PublicProfile, SocialLink } from '@erax/shared-types'
 import { Alert, Button, Note, TextArea, TextField } from '@erax/ui'
 import { useEffect, useState } from 'react'
 import { api } from '../../../lib/api'
@@ -11,11 +11,15 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [pending, setPending] = useState(false)
+  const [links, setLinks] = useState<SocialLink[]>([])
 
   useEffect(() => {
     api
       .me()
-      .then((result) => setProfile(result.profile))
+      .then((result) => {
+        setProfile(result.profile)
+        setLinks(result.profile.socialLinks)
+      })
       .catch((caught: unknown) => {
         setError(caught instanceof Error ? caught.message : 'Profile could not be loaded')
       })
@@ -29,8 +33,6 @@ export default function ProfilePage() {
     setError(null)
     const form = new FormData(event.currentTarget)
     try {
-      const linkLabel = String(form.get('linkLabel') ?? '').trim()
-      const linkUrl = String(form.get('linkUrl') ?? '').trim()
       const result = await api.updateProfile({
         username: String(form.get('username') ?? ''),
         displayName: String(form.get('displayName') ?? ''),
@@ -39,9 +41,10 @@ export default function ProfilePage() {
         location: String(form.get('location') ?? ''),
         visibility: String(form.get('visibility') ?? 'public') as 'public' | 'private',
         creatorStatus: String(form.get('creatorStatus') ?? 'none') as 'none' | 'creator',
-        socialLinks: linkLabel && linkUrl ? [{ label: linkLabel, url: linkUrl }] : profile.socialLinks,
+        socialLinks: links.filter((link) => link.label.trim() && link.url.trim()),
       })
       setProfile(result.profile)
+      setLinks(result.profile.socialLinks)
       setSaved(true)
     } catch (caught) {
       setError(caught instanceof ApiClientError ? caught.message : 'Profile update failed')
@@ -94,8 +97,35 @@ export default function ProfilePage() {
             <option value="creator">Self-declared creator</option>
           </select>
         </label>
-        <TextField label="Social link label" name="linkLabel" />
-        <TextField label="Social link URL" name="linkUrl" placeholder="https://" />
+        {links.map((link, index) => (
+          <div key={index} className="erax-form">
+            <TextField
+              label={`Link ${index + 1} label`}
+              value={link.label}
+              maxLength={30}
+              onChange={(event) =>
+                setLinks((current) =>
+                  current.map((item, itemIndex) => (itemIndex === index ? { ...item, label: event.target.value } : item)),
+                )
+              }
+            />
+            <TextField
+              label={`Link ${index + 1} URL`}
+              value={link.url}
+              placeholder="https://"
+              onChange={(event) =>
+                setLinks((current) =>
+                  current.map((item, itemIndex) => (itemIndex === index ? { ...item, url: event.target.value } : item)),
+                )
+              }
+            />
+          </div>
+        ))}
+        {links.length < 5 ? (
+          <button className="erax-button-secondary" type="button" onClick={() => setLinks((current) => [...current, { label: '', url: '' }])}>
+            Add social link
+          </button>
+        ) : null}
         {error ? <Alert>{error}</Alert> : null}
         {saved ? <Note>Profile saved.</Note> : null}
         <Button type="submit" disabled={pending}>
@@ -103,8 +133,55 @@ export default function ProfilePage() {
         </Button>
         <a href={`/app/u/${profile.username}`}>View public profile</a>
       </form>
+      <form
+        className="erax-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          const file = new FormData(event.currentTarget).get('avatar')
+          if (!(file instanceof File) || file.size === 0) return
+          setError(null)
+          void api
+            .uploadAvatar(file)
+            .then(() => setSaved(true))
+            .catch((caught: unknown) =>
+              setError(caught instanceof ApiClientError ? caught.message : 'Avatar was not saved'),
+            )
+        }}
+      >
+        <label className="erax-field">
+          <span>Avatar</span>
+          <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+        </label>
+        <Button type="submit">Upload avatar</Button>
+      </form>
+      <form
+        className="erax-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          const file = new FormData(event.currentTarget).get('cover')
+          if (!(file instanceof File) || file.size === 0) return
+          setError(null)
+          void api
+            .uploadCover(file)
+            .then(() => setSaved(true))
+            .catch((caught: unknown) =>
+              setError(caught instanceof ApiClientError ? caught.message : 'Cover was not saved'),
+            )
+        }}
+      >
+        <label className="erax-field">
+          <span>Cover</span>
+          <input name="cover" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+        </label>
+        <Button type="submit">Upload cover</Button>
+        <p className="erax-muted">
+          If this deployment has no media storage, the upload stops with an error and nothing is pretended to
+          be saved.
+        </p>
+      </form>
       <p className="erax-muted">
         Linked wallets are verified by a signature. Manage them on the <a href="/wallet">wallet page</a>.
+        Self-declared creator status is not a verification badge and is not an on-chain registration.
       </p>
     </section>
   )

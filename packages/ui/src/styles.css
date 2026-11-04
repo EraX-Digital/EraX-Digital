@@ -23,11 +23,23 @@ body {
   margin: 0;
   padding: 0;
 }
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f4f1ea;
+  --bg-2: #fffcf7;
+  --ink: #121212;
+  --muted: #5e584e;
+  --line: rgba(18, 18, 18, 0.14);
+  --gold: #8d6a1f;
+  --gold-2: #6d5012;
+  --teal: #1f6f66;
+  --danger: #8c2f23;
+  --ok: #1d6b3a;
+  --shadow: none;
+}
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(900px 420px at 10% -10%, rgba(224, 177, 90, 0.16), transparent 55%),
-    radial-gradient(700px 380px at 100% 0%, rgba(143, 208, 198, 0.12), transparent 50%), var(--bg);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
 }
@@ -113,10 +125,10 @@ textarea {
 }
 .erax-card,
 .erax-panel {
-  background: rgba(18, 25, 45, 0.86);
+  background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
+  border-radius: 12px;
+  box-shadow: none;
 }
 .erax-card {
   padding: 18px;
@@ -153,7 +165,7 @@ textarea {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: #0c1324;
+  background: var(--bg);
   padding: 12px 14px;
 }
 .erax-actions {
@@ -238,11 +250,14 @@ textarea {
 
 .erax-social {
   display: grid;
-  grid-template-columns: 240px minmax(0, 720px);
-  gap: 28px;
-  width: min(1120px, calc(100% - 32px));
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 24px 0 88px;
+  padding: 24px 0 96px;
+}
+.erax-social:has(.erax-rail) {
+  grid-template-columns: 220px minmax(0, 640px) 280px;
 }
 .erax-side {
   display: flex;
@@ -312,8 +327,120 @@ textarea {
 .erax-bottom-nav {
   display: none;
 }
-@media (max-width: 900px) {
-  .erax-social {
+.erax-rail {
+  display: grid;
+  gap: 12px;
+  align-self: start;
+  position: sticky;
+  top: 16px;
+}
+.erax-rail h2 {
+  font-family: var(--serif);
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.erax-profile {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.erax-profile-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.erax-avatar,
+.erax-avatar-fallback {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+.erax-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-2);
+  font-family: var(--serif);
+  font-size: 28px;
+}
+.erax-cover-empty {
+  height: 120px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.erax-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 8px 0 16px;
+}
+.erax-tab {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.erax-tab-active {
+  color: var(--ink);
+  border-bottom-color: var(--gold);
+}
+.erax-quote {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--gold);
+  background: var(--bg);
+}
+.erax-skeleton {
+  height: 14px;
+  margin: 10px 0;
+  border-radius: 7px;
+  background: var(--line);
+}
+.erax-skeleton-short {
+  width: 45%;
+}
+.erax-skeleton-cover {
+  height: 88px;
+}
+.erax-theme {
+  display: flex;
+  gap: 6px;
+}
+.erax-theme button {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+}
+.erax-theme button[aria-pressed='true'] {
+  background: var(--gold);
+  color: #1b1408;
+}
+.erax-footer {
+  padding: 28px 0 48px;
+  color: var(--muted);
+}
+.erax-side-nav a[aria-current='page'] {
+  color: var(--gold-2);
+}
+@media (max-width: 1100px) {
+  .erax-social:has(.erax-rail) {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .erax-rail {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .erax-social,
+  .erax-social:has(.erax-rail) {
     grid-template-columns: 1fr;
   }
   .erax-main {
@@ -321,16 +448,32 @@ textarea {
   }
   .erax-side {
     position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .erax-side-nav,
+  .erax-side > .erax-button {
+    display: none;
   }
   .erax-bottom-nav {
     display: flex;
-    justify-content: space-between;
+    gap: 8px;
+    overflow-x: auto;
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
-    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-    background: rgba(11, 16, 32, 0.94);
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    background: var(--bg);
     border-top: 1px solid var(--line);
+  }
+  .erax-bottom-nav a {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
   }
 }

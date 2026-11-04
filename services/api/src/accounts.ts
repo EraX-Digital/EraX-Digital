@@ -23,6 +23,7 @@ import type { EmailDelivery, PublicProfile, PublicUser, SocialLink } from '@erax
 import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm'
 import type { EmailSender } from './email'
 import { ApiError } from './errors'
+import { storageUnavailable } from './media'
 import type { MediaStorage } from './media'
 
 const VERIFY_TTL_MS = 1000 * 60 * 60 * 24
@@ -522,7 +523,14 @@ export function createAccountService(options: AccountServiceOptions) {
       const current = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1)
       if (!current[0]) throw new ApiError(404, 'profile_missing', 'Profile was not found')
       const key = `avatars/${userId}/${randomUUID()}${extension}`
-      await media.put(key, bytes)
+      try {
+        await media.put(key, bytes)
+      } catch (error) {
+        if (storageUnavailable(error)) {
+          throw new ApiError(503, 'media_unavailable', 'Image upload is not available because media storage is not configured.')
+        }
+        throw error
+      }
       await db.transaction(async (tx) => {
         await tx
           .update(profiles)
@@ -549,7 +557,14 @@ export function createAccountService(options: AccountServiceOptions) {
       const current = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1)
       if (!current[0]) throw new ApiError(404, 'profile_missing', 'Profile was not found')
       const key = `covers/${userId}/${randomUUID()}${extension}`
-      await media.put(key, bytes)
+      try {
+        await media.put(key, bytes)
+      } catch (error) {
+        if (storageUnavailable(error)) {
+          throw new ApiError(503, 'media_unavailable', 'Image upload is not available because media storage is not configured.')
+        }
+        throw error
+      }
       await db.transaction(async (tx) => {
         await tx
           .update(profiles)

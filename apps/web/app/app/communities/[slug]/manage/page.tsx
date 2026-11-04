@@ -11,6 +11,7 @@ export default function ManageCommunityPage() {
   const slug = params.slug
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [rules, setRules] = useState('')
   const [visibility, setVisibility] = useState<'public' | 'private'>('public')
   const [member, setMember] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -22,6 +23,7 @@ export default function ManageCommunityPage() {
       .then((community) => {
         setName(community.name)
         setDescription(community.description)
+        setRules(community.rules ?? '')
         setVisibility(community.visibility)
       })
       .catch((caught: unknown) =>
@@ -33,7 +35,7 @@ export default function ManageCommunityPage() {
     event.preventDefault()
     setSaved(false)
     try {
-      await api.updateCommunity(slug, { name, description, visibility })
+      await api.updateCommunity(slug, { name, description, rules, visibility })
       setSaved(true)
     } catch (caught) {
       setError(caught instanceof ApiClientError ? caught.message : 'Community was not updated')
@@ -47,6 +49,7 @@ export default function ManageCommunityPage() {
       <form className="erax-form" onSubmit={(event) => void save(event)}>
         <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} />
         <TextArea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+        <TextArea label="Rules" value={rules} maxLength={2000} onChange={(event) => setRules(event.target.value)} />
         <label className="erax-field">
           <span>Visibility</span>
           <select value={visibility} onChange={(event) => setVisibility(event.target.value as 'public' | 'private')}>

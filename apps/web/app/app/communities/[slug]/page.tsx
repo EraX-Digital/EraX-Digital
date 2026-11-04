@@ -12,8 +12,10 @@ type Community = {
   name: string
   slug: string
   description: string
+  rules: string
   visibility: 'public' | 'private'
   memberCount: number
+  coverUrl: string | null
   viewerRole: 'owner' | 'moderator' | 'member' | null
 }
 
@@ -52,8 +54,17 @@ export default function CommunityPage() {
 
   return (
     <>
+      {community.coverUrl ? <img className="erax-cover" alt="" src={community.coverUrl} /> : null}
       <h1>{community.name}</h1>
       <p>{community.description || 'No description.'}</p>
+      {community.rules ? (
+        <section className="erax-card">
+          <h2>Rules</h2>
+          <p className="erax-post-body">{community.rules}</p>
+        </section>
+      ) : (
+        <p className="erax-muted">No rules have been written.</p>
+      )}
       <p className="erax-muted">
         {community.visibility} · {community.memberCount} members
       </p>
@@ -95,6 +106,13 @@ export default function CommunityPage() {
               {member.displayName} @{member.username}
             </a>{' '}
             <span className="erax-muted">{member.role}</span>
+            {community.viewerRole === 'owner' || (community.viewerRole === 'moderator' && member.role === 'member') ? (
+              member.role === 'owner' ? null : (
+                <button type="button" onClick={() => void act(() => api.removeMember(slug, member.username))}>
+                  Remove
+                </button>
+              )
+            ) : null}
           </li>
         ))}
       </ul>

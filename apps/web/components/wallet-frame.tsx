@@ -9,6 +9,7 @@ const links = [
   ['/wallet/receive', 'Receive'],
   ['/wallet/send', 'Send'],
   ['/wallet/transactions', 'Activity'],
+  ['/wallet/creator', 'Creator'],
 ]
 
 export function WalletFrame({ children }: { children: React.ReactNode }) {
@@ -23,6 +24,10 @@ export function WalletFrame({ children }: { children: React.ReactNode }) {
             </a>
           ))}
           <a href="/app">Social</a>
+          <a href="/about">About</a>
+          <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
+            EraX Digital
+          </a>
         </nav>
         <p className="erax-muted">EraX never asks for a seed phrase or private key.</p>
       </aside>

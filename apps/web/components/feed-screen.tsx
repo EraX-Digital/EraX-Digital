@@ -8,7 +8,7 @@ import { api } from '../lib/api'
 import { composerError, emptyCopy } from '../lib/view-model'
 import { PostCardView } from './post-card'
 
-type Kind = 'following' | 'discover' | 'bookmarks' | 'profile' | 'community'
+type Kind = 'following' | 'discover' | 'media' | 'bookmarks' | 'profile' | 'community'
 
 export function FeedScreen({
   kind,
@@ -22,27 +22,31 @@ export function FeedScreen({
   communitySlug?: string
 }) {
   const [items, setItems] = useState<PostCard[] | null>(null)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
-  async function load() {
+  async function load(cursor?: string) {
     const page =
-      kind === 'following'
-        ? await api.feed('following')
-        : kind === 'discover'
-          ? await api.feed('discover')
-          : kind === 'bookmarks'
-            ? await api.bookmarks()
-            : kind === 'profile' && username
-              ? await api.profilePosts(username)
-              : kind === 'community' && communitySlug
-                ? await api.communityPosts(communitySlug)
-                : { items: [], nextCursor: null }
-    setItems(page.items)
+      kind === 'following' || kind === 'discover' || kind === 'media'
+        ? await api.feed(kind, cursor)
+        : kind === 'bookmarks'
+          ? await api.bookmarks(cursor)
+          : kind === 'profile' && username
+            ? await api.profilePosts(username, cursor)
+            : kind === 'community' && communitySlug
+              ? await api.communityPosts(communitySlug, cursor)
+              : { items: [], nextCursor: null }
+    setNextCursor(page.nextCursor)
+    setItems((current) => (cursor ? [...(current ?? []), ...page.items] : page.items))
   }
 
   useEffect(() => {
+    setItems(null)
+    setNextCursor(null)
+    setError(null)
     load().catch((caught: unknown) =>
       setError(caught instanceof Error ? caught.message : 'The feed could not be loaded'),
     )
@@ -54,9 +58,11 @@ export function FeedScreen({
     const form = new FormData(formElement)
     const body = String(form.get('body') ?? '')
     const link = String(form.get('linkUrl') ?? '')
-    const file = form.get('file')
-    const hasMedia = file instanceof File && file.size > 0
-    const problem = composerError(body, hasMedia, link)
+    const files = form
+      .getAll('file')
+      .filter((item): item is File => item instanceof File && item.size > 0)
+      .slice(0, 4)
+    const problem = composerError(body, files.length > 0, link)
     if (problem) {
       setError(problem)
       return
@@ -65,14 +71,14 @@ export function FeedScreen({
     setError(null)
     try {
       const mediaIds: string[] = []
-      if (hasMedia && file instanceof File) {
+      for (const file of files) {
         const uploaded = await api.uploadPostMedia(file)
         mediaIds.push(uploaded.id)
       }
       await api.createPost({
         body,
         linkUrl: link.trim() || null,
-        visibility: (String(form.get('visibility') || 'public') as 'public' | 'followers' | 'community'),
+        visibility: String(form.get('visibility') || 'public') as 'public' | 'followers' | 'community',
         communityId,
         mediaIds,
       })
@@ -92,12 +98,17 @@ export function FeedScreen({
     try {
       const updated = await api.react(post.id, action, active)
       setItems((current) => current?.map((item) => (item.id === post.id ? updated : item)) ?? null)
+      setError(null)
     } catch (caught) {
       setError(caught instanceof ApiClientError ? caught.message : 'That action failed')
     }
   }
 
-  const copy = emptyCopy(kind)
+  async function report(postId: string, reason: string) {
+    await api.report({ targetType: 'post', targetId: postId, reason })
+  }
+
+  const copy = emptyCopy(kind === 'media' ? 'media' : kind)
 
   return (
     <section className="erax-feed">
@@ -107,8 +118,8 @@ export function FeedScreen({
           <TextArea label="Text" name="body" rows={4} maxLength={2000} />
           <TextField label="Link" name="linkUrl" placeholder="https://" />
           <label className="erax-field">
-            <span>Image or MP4</span>
-            <input name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4" />
+            <span>Up to 4 images, or one MP4</span>
+            <input name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4" multiple />
           </label>
           {kind === 'following' ? (
             <label className="erax-field">
@@ -128,7 +139,27 @@ export function FeedScreen({
       ) : error ? (
         <Alert>{error}</Alert>
       ) : null}
-      {items === null ? <p className="erax-muted">Loading posts…</p> : null}
+      <div className="erax-actions">
+        <button
+          className="erax-button-secondary"
+          type="button"
+          onClick={() => {
+            setError(null)
+            load().catch((caught: unknown) =>
+              setError(caught instanceof Error ? caught.message : 'The feed could not be refreshed'),
+            )
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+      {items === null && !error ? (
+        <div className="erax-card" aria-hidden="true">
+          <div className="erax-skeleton" />
+          <div className="erax-skeleton" />
+          <div className="erax-skeleton erax-skeleton-short" />
+        </div>
+      ) : null}
       {items && items.length === 0 ? <EmptyState title={copy.title} body={copy.body} /> : null}
       {items?.map((post) => (
         <PostCardView
@@ -137,8 +168,25 @@ export function FeedScreen({
           onLike={() => void react(post, 'like')}
           onRepost={() => void react(post, 'repost')}
           onBookmark={() => void react(post, 'bookmark')}
+          onReport={(reason) => report(post.id, reason)}
         />
       ))}
+      {nextCursor ? (
+        <Button
+          type="button"
+          disabled={loadingMore}
+          onClick={() => {
+            setLoadingMore(true)
+            load(nextCursor)
+              .catch((caught: unknown) =>
+                setError(caught instanceof Error ? caught.message : 'More posts could not be loaded'),
+              )
+              .finally(() => setLoadingMore(false))
+          }}
+        >
+          {loadingMore ? 'Loading…' : 'Load more'}
+        </Button>
+      ) : null}
     </section>
   )
 }

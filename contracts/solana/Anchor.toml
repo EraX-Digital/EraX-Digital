@@ -1,0 +1,21 @@
+[toolchain]
+anchor_version = "0.31.3"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+creator_registry = "CW9G6KwD29Zu6MdEFXfJ4c31zWvispLY5hNovprn2Qv1"
+creator_tipping = "5Z4UJ9gbtfZc4Ha7c4ibHYsd2V77anFpv7KHnqjf5ANV"
+
+[programs.devnet]
+creator_registry = "CW9G6KwD29Zu6MdEFXfJ4c31zWvispLY5hNovprn2Qv1"
+creator_tipping = "5Z4UJ9gbtfZc4Ha7c4ibHYsd2V77anFpv7KHnqjf5ANV"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test --manifest-path Cargo.toml"

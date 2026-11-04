@@ -44,6 +44,15 @@ pnpm db:seed
 
 The seed refuses to run when `NODE_ENV=production` and when the database host is not local. It creates one development administrator. It does not create posts, messages, communities, or statistics.
 
+Fictional Social demo content is a separate command. It is not run by `pnpm dev` or `pnpm db:seed`.
+
+```powershell
+pnpm db:seed:socialfi
+pnpm db:seed:socialfi:cleanup
+```
+
+The local command refuses production. Staging and production commands are documented in `docs/DEMO_CONTENT_SEEDING.md`. Production seeding requires an explicit confirm flag and was not run. Cleanup deletes only rows marked as that demo batch.
+
 ## Email
 
 `EMAIL_MODE=outbox` stores verification and reset messages locally. The API response says they were not delivered. `EMAIL_MODE=smtp` uses `SMTP_HOST`. Docker Compose includes Mailpit on SMTP port 1025 and a web view on port 8025. Production must use SMTP. The outbox is rejected when `NODE_ENV=production`.
@@ -71,6 +80,10 @@ The production guides are:
 
 Web and admin are prepared as two Vercel projects. The API and indexer stay on a long-running Node.js host. Production rejects PGlite, local media disk, the email outbox, and the in-process rate limiter. No deployment, DNS change, or production migration has been run.
 
+## Social
+
+Signed-in screens use a left navigation column, a main column, and a right rail on a wide desktop. `/about` describes EraX Digital using the public company site and links to https://erax.digital/. Profile pages show stored profile fields, follow lists, and signature-verified wallets. Creator registration and SOL or ETH tips stay unavailable while program deployment signatures are null. The notes are `docs/SOCIALFI_PRODUCT_DIRECTION.md`, `docs/PROFILE_UPGRADE.md`, `docs/UI_REDESIGN.md`, and `docs/SOCIALFI_UPGRADE_COMPLETION_REPORT.md`.
+
 ## Wallets
 
 Wallet pages live at `/wallet`. Email registration does not require a wallet. Sign-in with Ethereum and Sign-in with Solana are additional session paths. One account can link more than one address. The API stores public addresses only.
@@ -82,6 +95,8 @@ The guides are `docs/WALLET_INTEGRATION_GUIDE.md`, `docs/EVM_INTEGRATION_GUIDE.m
 ## Contracts
 
 `contracts/evm` is a Foundry project for `CreatorRegistry` and `CreatorTipping`. The contracts are tested locally. They are not deployed, not audited, and not called by the web app. There is no EraX token. Install Foundry, clone the pinned libraries, and run the checks from `contracts/evm/README.md`. Deployment steps are in `docs/EVM_DEPLOYMENT_GUIDE.md`. Do not broadcast to mainnet.
+
+`contracts/solana` is an Anchor 0.31.3 workspace for the Solana `creator_registry` and `creator_tipping` programs. Run `cargo test --manifest-path contracts/solana/Cargo.toml`. That uses an in-process program test. It does not deploy. Program keypairs are gitignored. Devnet and mainnet-beta signatures in `contracts/solana/deployments/` are null. The wallet page `/wallet/creator` stays inactive until the public program ids are set. See `docs/SOLANA_DEPLOYMENT_GUIDE.md`. Do not deploy to mainnet-beta.
 
 ## Security notes for this phase
 

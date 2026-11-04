@@ -41,7 +41,7 @@ export type ProfileStats = {
 export type PublicProfileCard = PublicProfile & {
   stats: ProfileStats
   linkedWallets: Array<{ chainFamily: 'evm' | 'solana'; network: string; address: string }>
-  viewer: { following: boolean; blocked: boolean; isSelf: boolean }
+  viewer: { following: boolean; blocked: boolean; isSelf: boolean; mutualCount: number }
 }
 
 export type PostVisibility = 'public' | 'followers' | 'community'
@@ -60,6 +60,12 @@ export type PostMedia = {
   kind: 'image' | 'video'
 }
 
+export type QuotePreview = {
+  id: string
+  body: string
+  author: PostAuthor
+}
+
 export type PostCard = {
   id: string
   body: string
@@ -72,6 +78,39 @@ export type PostCard = {
   media: PostMedia[]
   counts: { likes: number; comments: number; reposts: number; bookmarks: number }
   viewer: { liked: boolean; reposted: boolean; bookmarked: boolean }
+  quote?: QuotePreview | null
+}
+
+export type ProfileReply = {
+  id: string
+  body: string
+  createdAt: string
+  postId: string
+}
+
+export type ProfileCommunityCard = {
+  slug: string
+  name: string
+  description: string
+  rules: string
+  visibility: 'public' | 'private'
+  role: 'owner' | 'moderator' | 'member'
+  memberCount: number
+}
+
+export type ActivityItem = {
+  id: string
+  kind: 'post' | 'comment' | 'follow'
+  createdAt: string
+  label: string
+  href: string
+}
+
+export type ChainStatus = {
+  creatorRegistration: 'not_enabled'
+  tips: 'not_enabled'
+  message: string
+  indexedEventCount: number
 }
 
 export type CommentCard = {
