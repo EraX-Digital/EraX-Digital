@@ -91,6 +91,23 @@ textarea {
   font-size: 11px;
   text-transform: uppercase;
 }
+.erax-company-logo {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  text-decoration: none;
+}
+.erax-company-logo img {
+  height: 36px;
+  width: auto;
+  display: block;
+}
+.erax-company-logo:hover img {
+  opacity: 0.82;
+}
+:root[data-theme='light'] .erax-company-logo img {
+  filter: invert(1);
+}
 .erax-nav a,
 .erax-side-nav a,
 .erax-bottom-nav a {

@@ -5,6 +5,7 @@ import { ApiClientError } from '@erax/api-client'
 import { BrandMark } from '@erax/ui'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { CompanyLink } from '../../components/company-link'
 import { ThemeToggle } from '../../components/theme-toggle'
 import { api } from '../../lib/api'
 
@@ -104,9 +105,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
           <a href={`/app/u/${session.profile.username}`}>Profile</a>
           <a href="/app/settings">Settings</a>
           <a href="/about">About</a>
-          <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
-            EraX Digital
-          </a>
+          <CompanyLink />
         </nav>
         <ThemeToggle />
         <button className="erax-button" type="button" onClick={() => (window.location.href = '/app')}>
@@ -174,9 +173,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             <a href="/about">About EraX</a>
           </p>
           <p>
-            <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
-              erax.digital
-            </a>
+            <CompanyLink />
           </p>
         </section>
       </aside>

@@ -1,4 +1,5 @@
 import { BrandMark, SecondaryLink } from '@erax/ui'
+import { CompanyLink } from '../components/company-link'
 import { ThemeToggle } from '../components/theme-toggle'
 
 const available = [
@@ -20,9 +21,7 @@ export default function HomePage() {
         <BrandMark />
         <nav className="erax-nav">
           <a href="/about">About</a>
-          <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
-            EraX Digital
-          </a>
+          <CompanyLink />
           <ThemeToggle />
           <a href="/login">Sign in</a>
           <a className="erax-button" href="/register">

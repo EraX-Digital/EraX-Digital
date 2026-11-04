@@ -1,4 +1,5 @@
 import { BrandMark } from '@erax/ui'
+import { CompanyLink } from '../../components/company-link'
 
 export default function AboutPage() {
   return (
@@ -8,9 +9,7 @@ export default function AboutPage() {
         <nav className="erax-nav">
           <a href="/">Home</a>
           <a href="/login">Sign in</a>
-          <a href="https://erax.digital/" target="_blank" rel="noopener noreferrer">
-            EraX Digital
-          </a>
+          <CompanyLink />
         </nav>
       </header>
       <article className="erax-panel">
