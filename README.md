@@ -79,6 +79,10 @@ Server RPC variables are `EVM_RPC_URL_1`, `EVM_RPC_URL_8453`, `EVM_RPC_URL_11155
 
 The guides are `docs/WALLET_INTEGRATION_GUIDE.md`, `docs/EVM_INTEGRATION_GUIDE.md`, `docs/SOLANA_INTEGRATION_GUIDE.md`, `docs/WALLET_SECURITY.md`, and `docs/BLOCKCHAIN_INDEXER_GUIDE.md`.
 
+## Contracts
+
+`contracts/evm` is a Foundry project for `CreatorRegistry` and `CreatorTipping`. The contracts are tested locally. They are not deployed, not audited, and not called by the web app. There is no EraX token. Install Foundry, clone the pinned libraries, and run the checks from `contracts/evm/README.md`. Deployment steps are in `docs/EVM_DEPLOYMENT_GUIDE.md`. Do not broadcast to mainnet.
+
 ## Security notes for this phase
 
 - Passwords are hashed with Argon2id. Sessions are random tokens stored as SHA-256 hashes in HttpOnly cookies.

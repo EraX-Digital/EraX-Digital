@@ -34,6 +34,10 @@ Solana (`runSolanaIndexerTick`):
 
 Restarts read `indexer_checkpoints` and continue from the stored cursor. There is no backfill of history from before the first tick.
 
+## Creator contracts
+
+`CreatorTipping` forwards ETH with an internal call and emits `TipSent`. The indexer does not decode that event. A tip whose outer transaction has value would be stored as native ETH sent to the tipping contract, not as a payment to the creator payout. No contract address is configured because nothing has been deployed. Do not point the indexer at a guessed address.
+
 ## Coverage
 
 This is a forward index of linked wallets after the process starts. It is not an archive of every historical transaction. The history API says so. EVM `history/sync` does not walk old blocks; it tells the caller the indexer fills that history. Solana `history/sync` stores only the recent decoded system transfers from one RPC page.

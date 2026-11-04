@@ -5,3 +5,6 @@ coverage
 pnpm-lock.yaml
 var
 docs
+contracts/evm/out
+contracts/evm/cache
+contracts/evm/lib

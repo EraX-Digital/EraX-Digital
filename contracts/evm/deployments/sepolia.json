@@ -1,0 +1,22 @@
+{
+  "network": "Ethereum Sepolia",
+  "chainId": 11155111,
+  "caip2": "eip155:11155111",
+  "status": "not_deployed",
+  "deployedAt": null,
+  "compiler": {
+    "solc": "0.8.30",
+    "optimizer": true,
+    "optimizerRuns": 200,
+    "evmVersion": "cancun"
+  },
+  "dependencies": {
+    "foundry": "v1.9.0",
+    "forge-std": "v1.11.0",
+    "openzeppelin-contracts": "v5.4.0"
+  },
+  "contracts": {
+    "CreatorRegistry": { "address": null, "transactionHash": null },
+    "CreatorTipping": { "address": null, "transactionHash": null }
+  }
+}

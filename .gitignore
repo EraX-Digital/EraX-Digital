@@ -16,3 +16,7 @@ Thumbs.db
 *.key
 keystore.json
 id.json
+contracts/evm/out
+contracts/evm/cache
+contracts/evm/broadcast
+contracts/evm/lib

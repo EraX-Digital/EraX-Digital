@@ -4,11 +4,13 @@ Last updated: 2026-11-04
 
 ## Current status
 
-Phase 4, multi-chain wallet and blockchain integration, is implemented and waiting for approval. Phase 5 has not been started. No contract was deployed. No mainnet transfer was sent.
+Phase 5, EVM smart contract infrastructure, is implemented and tested locally. It is waiting for approval. Phase 6 has not been started.
 
-Production deployment is still not approved. No Vercel project was created, no DNS record was changed, and no migration was run against Neon.
+`CreatorRegistry` and `CreatorTipping` compile with Solidity 0.8.30. Foundry tests passed on the in-process EVM. No deployment script was broadcast. No testnet or mainnet transaction was sent. The deployment records in `contracts/evm/deployments/` keep every address and transaction hash as `null`. The contracts are not audited.
 
-PostgreSQL still does not start under this Administrator account. Wallet migration `0003_wallet.sql` was applied and checked on PGlite. The PostgreSQL `DATABASE_URL` test remains skipped.
+The web app does not call the contracts. `packages/wallet-evm` can encode `register`, `updateMetadata`, and `tip` once a real address is supplied. The indexer does not decode `TipSent`.
+
+Phase 4 remains in place: SIWE, wallet connection, balance reads, and wallet-signed transfers. A browser extension approval is still blocked on this machine. PostgreSQL still does not start under this Administrator account. Wallet migration `0003_wallet.sql` was applied and checked on PGlite. The PostgreSQL `DATABASE_URL` test remains skipped.
 
 ## Completed tasks
 
@@ -22,20 +24,25 @@ Phase 1, Phase 2, and Phase 3 remain. Phase 4 added:
 - A forward indexer with checkpoints, a 25-block EVM window, and reorg rewind.
 - Wallet pages under `/wallet`.
 
+Phase 5 added `contracts/evm`: `CreatorRegistry`, `CreatorTipping`, Foundry tests, Sepolia and Base Sepolia scripts, and unsigned call builders in `packages/wallet-evm`. No broadcast.
+
 ## Remaining tasks
 
+- Approval before any Sepolia or Base Sepolia broadcast.
+- An independent review before any mainnet use. Passing Foundry tests are not that review.
+- A database URL on the Vercel project before public account creation can persist. That is separate from these contracts.
 - A passing `pnpm db:verify` against real PostgreSQL, then Neon, before any production migration.
 - Live SMTP, S3, and Valkey, unchanged from the production checklist.
-- A browser extension approval for MetaMask, Coinbase Wallet, Phantom, Solflare, or Backpack. This session reached the connect buttons and did not complete a provider approval.
+- A browser extension approval for MetaMask, Coinbase Wallet, Phantom, Solflare, or Backpack.
 - EIP-1271 against a contract wallet.
 - An ownership-transfer flow if a linked address should move between accounts.
-- Do not start contract work or a token.
+- Do not add an EraX token. Do not start Phase 6.
 
 ## Current architecture
 
 The API remains a long-running Fastify process. Web and admin remain Next.js apps. The indexer is a second long-running process. It scans only when its database and at least one RPC URL are available. On PGlite it must use the same directory as the API, and it cannot open that directory while the API holds the file.
 
-`docs/PHASE_4_ARCHITECTURE.md` is the wallet design. The completion report records what was actually tested.
+`docs/PHASE_4_ARCHITECTURE.md` is the wallet design. `docs/PHASE_5_ARCHITECTURE.md` is the contract design. The completion reports record what was actually tested.
 
 `pnpm lint` exited 0 after the final connect-page edit. `pnpm --filter @erax/web build` and `pnpm --filter @erax/admin build` exited 0.
 
@@ -62,6 +69,26 @@ Test Files  22 passed | 1 skipped (23)
 
 The skipped test is `packages/database/src/postgres-migrate.test.ts`.
 
+## Contract tests
+
+```text
+forge build
+Compiler run successful
+Solc 0.8.30
+
+forge test --summary
+CreatorRegistryTest     14 passed
+CreatorTippingTest      11 passed
+RegistryInvariantTest    1 passed (2 invariants, 64 runs, 1280 calls)
+TippingInvariantTest     1 passed (64 runs, 1280 calls)
+27 passed, 0 failed, 0 skipped
+
+forge fmt --check
+exit 0
+```
+
+`packages/wallet-evm` creator-call tests: 4 passed. The existing SIWE and transfer tests in that package also passed in the same run (10 tests across 3 files).
+
 ## Next exact implementation step
 
-Wait for approval. Do not deploy contracts, send mainnet funds, create Vercel projects, or start the next phase.
+Wait for approval. Do not broadcast a deployment, send mainnet funds, or start Phase 6.

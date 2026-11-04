@@ -48,3 +48,21 @@ jobs:
       - run: pnpm test
       - run: pnpm --filter @erax/web build
       - run: pnpm --filter @erax/admin build
+
+  contracts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/evm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.9.0
+      - name: Install contract libraries
+        run: |
+          git clone --depth 1 --branch v1.11.0 https://github.com/foundry-rs/forge-std lib/forge-std
+          git clone --depth 1 --branch v5.4.0 https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts
+      - run: forge fmt --check
+      - run: forge build
+      - run: forge test
