@@ -24,4 +24,18 @@ describe('vercel account runtime', () => {
     expect(readDatabaseUrl({})).toBe('')
     expect(readDatabaseUrl({ DATABASE_URL: 'not-a-database' })).toBe('')
   })
+
+  it('prefers the direct Neon URL over the pooler and drops channel binding', () => {
+    const selected = readDatabaseUrl({
+      DATABASE_URL:
+        'postgresql://erax:secret@ep-example-pooler.c-1.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require',
+      DATABASE_URL_UNPOOLED:
+        'postgresql://erax:secret@ep-example.c-1.us-east-1.aws.neon.tech/neondb?sslmode=require',
+      POSTGRES_URL_NON_POOLING:
+        'postgresql://erax:secret@ep-example.c-1.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require',
+    })
+    expect(selected).toContain('ep-example.c-1.us-east-1.aws.neon.tech')
+    expect(selected).not.toContain('-pooler')
+    expect(selected).not.toContain('channel_binding')
+  })
 })

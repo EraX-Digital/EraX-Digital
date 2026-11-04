@@ -18,14 +18,32 @@ const NOT_CONFIGURED = {
   },
 }
 
+function usablePostgresUrl(value: string | undefined): string {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed.startsWith('postgres')) return ''
+  try {
+    const parsed = new URL(trimmed)
+    parsed.searchParams.delete('channel_binding')
+    return parsed.toString()
+  } catch {
+    return trimmed.replace(/([?&])channel_binding=[^&]*&?/g, '$1').replace(/[?&]$/, '')
+  }
+}
+
+function isPooledNeonUrl(value: string): boolean {
+  return /-pooler[./]/i.test(value)
+}
+
 export function readDatabaseUrl(source: Source): string {
-  const value =
-    source.DATABASE_URL?.trim() ||
-    source.POSTGRES_URL_NON_POOLING?.trim() ||
-    source.POSTGRES_URL?.trim() ||
-    source.POSTGRES_PRISMA_URL?.trim() ||
-    ''
-  return value.startsWith('postgres') ? value : ''
+  const candidates = [
+    source.POSTGRES_URL_NON_POOLING,
+    source.DATABASE_URL_UNPOOLED,
+    source.DATABASE_URL,
+    source.POSTGRES_URL,
+    source.POSTGRES_PRISMA_URL,
+  ]
+  const urls = candidates.map(usablePostgresUrl).filter((value) => value.length > 0)
+  return urls.find((value) => !isPooledNeonUrl(value)) ?? urls[0] ?? ''
 }
 
 export function deploymentOrigin(source: Source): string {
