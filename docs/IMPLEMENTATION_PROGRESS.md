@@ -6,7 +6,7 @@ Last updated: 2026-11-04
 
 Phase 5, EVM smart contract infrastructure, is implemented and tested locally. Phase 6, the Solana creator registry and tipping programs, is implemented and tested in-process. Neither phase is deployed. Both are waiting for approval.
 
-The SocialFi profile and feed upgrade is in the same tree. It does not deploy contracts and it does not seed production. Solana program files and `/wallet/creator` are unchanged by that upgrade. See `docs/SOCIALFI_UPGRADE_COMPLETION_REPORT.md`.
+The SocialFi demo dataset is in the local PGlite database: 25 fictional profiles, 120 original posts, and the related comments, likes, reposts, bookmarks, follows, communities, and polls. Production was not seeded. See `docs/SOCIALFI_DATABASE_COMPLETION_REPORT.md`.
 
 `CreatorRegistry` and `CreatorTipping` compile with Solidity 0.8.30. Foundry tests passed on the in-process EVM. No deployment script was broadcast. No testnet or mainnet transaction was sent. The deployment records in `contracts/evm/deployments/` keep every address and transaction hash as `null`. The contracts are not audited.
 

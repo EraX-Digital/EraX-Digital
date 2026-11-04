@@ -1,12 +1,22 @@
 import { hashPassword, normalizeEmail } from '@erax/auth'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import {
+  assertDemoFixture,
   DEMO_BATCH,
   DEMO_PASSWORD,
+  demoBookmarks,
   demoComments,
   demoCommunities,
+  demoFollows,
+  demoLikes,
+  demoMemberships,
   demoPeople,
+  demoPlan,
   demoPosts,
+  demoReposts,
+  demoVotes,
+  mentionsIn,
+  tagsIn,
 } from '../seeds/socialfi-demo-content'
 import type { Database } from './client'
 import {
@@ -15,9 +25,17 @@ import {
   communityMembers,
   demoMarks,
   follows,
+  hashtags,
+  pollOptions,
+  polls,
+  pollVotes,
+  postBookmarks,
+  postHashtags,
   postLikes,
+  postReposts,
   posts,
   profiles,
+  userMentions,
   users,
 } from './schema'
 import { assertLocalSeedTarget, describeDatabaseUrl } from './target'
@@ -62,28 +80,100 @@ export function assertDemoSeedAllowed(input: {
   }
 }
 
-async function markedCount(db: Database, entityType: 'user' | 'post' | 'community' | 'comment'): Promise<number> {
+async function idsFor(db: Database, batch: string, entityType: 'user' | 'post' | 'community' | 'comment') {
   const rows = await db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({ id: demoMarks.entityId })
     .from(demoMarks)
-    .where(and(eq(demoMarks.batch, DEMO_BATCH), eq(demoMarks.entityType, entityType)))
+    .where(and(eq(demoMarks.batch, batch), eq(demoMarks.entityType, entityType)))
+  return rows.map((row) => row.id)
+}
+
+async function counted(db: Database, query: Promise<Array<{ value: number | null }>>) {
+  const rows = await query
   return Number(rows[0]?.value ?? 0)
 }
 
-export async function seedSocialDemo(db: Database, now = new Date()) {
-  const postsAlready = await markedCount(db, 'post')
-  if (postsAlready >= demoPosts().length) {
-    return {
-      seeded: false,
-      reason: 'already-present',
-      batch: DEMO_BATCH,
-      users: await markedCount(db, 'user'),
-      posts: postsAlready,
-      communities: await markedCount(db, 'community'),
-      comments: await markedCount(db, 'comment'),
-    }
+export async function countSocialDemo(db: Database, batch = DEMO_BATCH) {
+  const [userIds, postIds, commentIds, communityIds] = await Promise.all([
+    idsFor(db, batch, 'user'),
+    idsFor(db, batch, 'post'),
+    idsFor(db, batch, 'comment'),
+    idsFor(db, batch, 'community'),
+  ])
+  const empty = userIds.length === 0 || postIds.length === 0
+  const likes = empty
+    ? 0
+    : await counted(db, db.select({ value: sql<number>`count(*)::int` }).from(postLikes).where(inArray(postLikes.postId, postIds)))
+  const reposts = empty
+    ? 0
+    : await counted(
+        db,
+        db.select({ value: sql<number>`count(*)::int` }).from(postReposts).where(inArray(postReposts.postId, postIds)),
+      )
+  const bookmarks = empty
+    ? 0
+    : await counted(
+        db,
+        db.select({ value: sql<number>`count(*)::int` }).from(postBookmarks).where(inArray(postBookmarks.postId, postIds)),
+      )
+  const followCount = empty
+    ? 0
+    : await counted(
+        db,
+        db
+          .select({ value: sql<number>`count(*)::int` })
+          .from(follows)
+          .where(and(inArray(follows.followerId, userIds), inArray(follows.followeeId, userIds))),
+      )
+  const memberships = empty
+    ? 0
+    : await counted(
+        db,
+        db
+          .select({ value: sql<number>`count(*)::int` })
+          .from(communityMembers)
+          .where(inArray(communityMembers.communityId, communityIds)),
+      )
+  const pollCount = empty
+    ? 0
+    : await counted(db, db.select({ value: sql<number>`count(*)::int` }).from(polls).where(inArray(polls.postId, postIds)))
+  const voteCount = empty
+    ? 0
+    : await counted(db, db.select({ value: sql<number>`count(*)::int` }).from(pollVotes).where(inArray(pollVotes.postId, postIds)))
+  const hashtagCount = empty
+    ? 0
+    : await counted(
+        db,
+        db
+          .select({ value: sql<number>`count(distinct ${postHashtags.hashtagId})::int` })
+          .from(postHashtags)
+          .where(inArray(postHashtags.postId, postIds)),
+      )
+  return {
+    batch,
+    users: userIds.length,
+    posts: postIds.length,
+    comments: commentIds.length,
+    communities: communityIds.length,
+    likes,
+    reposts,
+    bookmarks,
+    follows: followCount,
+    memberships,
+    polls: pollCount,
+    votes: voteCount,
+    hashtags: hashtagCount,
   }
-  if (postsAlready > 0) {
+}
+
+export async function seedSocialDemo(db: Database, now = new Date()) {
+  assertDemoFixture()
+  const plan = demoPlan()
+  const existingPosts = (await idsFor(db, DEMO_BATCH, 'post')).length
+  if (existingPosts >= plan.posts) {
+    return { seeded: false, reason: 'already-present', ...(await countSocialDemo(db)) }
+  }
+  if (existingPosts > 0) {
     throw new Error('A partial social demo batch exists. Run the demo cleanup before seeding again.')
   }
   for (const person of demoPeople) {
@@ -99,7 +189,7 @@ export async function seedSocialDemo(db: Database, now = new Date()) {
 
   const plannedPosts = demoPosts()
   const passwordHash = await hashPassword(DEMO_PASSWORD)
-  const summary = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const userIds = new Map<string, string>()
     for (const person of demoPeople) {
       const inserted = await tx
@@ -129,10 +219,9 @@ export async function seedSocialDemo(db: Database, now = new Date()) {
     }
 
     const communityIds = new Map<string, string>()
-    for (const [index, community] of demoCommunities.entries()) {
-      const ownerName = demoPeople[index % demoPeople.length]?.username
-      const ownerId = ownerName ? userIds.get(ownerName) : undefined
-      if (!ownerId) throw new Error('Demo community owner missing')
+    for (const community of demoCommunities) {
+      const ownerId = userIds.get(community.owner)
+      if (!ownerId) throw new Error(`Demo community owner missing: ${community.owner}`)
       const inserted = await tx
         .insert(communities)
         .values({
@@ -147,28 +236,30 @@ export async function seedSocialDemo(db: Database, now = new Date()) {
       if (!row) throw new Error('Demo community insert failed')
       communityIds.set(community.slug, row.id)
       await tx.insert(demoMarks).values({ batch: DEMO_BATCH, entityType: 'community', entityId: row.id })
-      for (const person of demoPeople) {
-        const userId = userIds.get(person.username)
-        if (!userId) continue
-        await tx.insert(communityMembers).values({
-          communityId: row.id,
-          userId,
-          role: userId === ownerId ? 'owner' : 'member',
-        })
-      }
+    }
+    for (const membership of demoMemberships()) {
+      const communityId = communityIds.get(membership.slug)
+      const userId = userIds.get(membership.username)
+      if (!communityId || !userId) throw new Error('Demo membership is missing a community or user')
+      await tx.insert(communityMembers).values({ communityId, userId, role: membership.role })
     }
 
     const postIds: string[] = []
-    for (const post of plannedPosts) {
+    for (const [index, post] of plannedPosts.entries()) {
       const authorId = userIds.get(post.author)
       if (!authorId) throw new Error(`Demo author missing: ${post.author}`)
+      const communityId = post.communitySlug ? communityIds.get(post.communitySlug) : null
+      if (post.communitySlug && !communityId) throw new Error(`Demo community missing: ${post.communitySlug}`)
       const inserted = await tx
         .insert(posts)
         .values({
           authorId,
-          communityId: post.communitySlug ? communityIds.get(post.communitySlug) : null,
+          communityId,
           body: post.body,
+          linkUrl: post.linkUrl,
           visibility: 'public',
+          featured: index === 75 || index === 80 || index === 85,
+          createdAt: new Date(now.getTime() - (plannedPosts.length - index) * 60 * 60 * 1000),
         })
         .returning()
       const row = inserted[0]
@@ -176,46 +267,122 @@ export async function seedSocialDemo(db: Database, now = new Date()) {
       postIds.push(row.id)
       await tx.insert(demoMarks).values({ batch: DEMO_BATCH, entityType: 'post', entityId: row.id })
     }
+    for (const [index, post] of plannedPosts.entries()) {
+      if (post.quoteOf === null) continue
+      const quotePostId = postIds[post.quoteOf]
+      const postId = postIds[index]
+      if (!quotePostId || !postId) throw new Error('Demo quote is missing a post')
+      await tx.update(posts).set({ quotePostId }).where(eq(posts.id, postId))
+    }
 
-    let commentCount = 0
-    for (const comment of demoComments) {
-      const authorId = userIds.get(comment.author)
+    const tagIds = new Map<string, string>()
+    for (const [index, post] of plannedPosts.entries()) {
+      const postId = postIds[index]
+      const authorId = userIds.get(post.author)
+      if (!postId || !authorId) throw new Error('Demo tag source is missing')
+      for (const tag of tagsIn(post.body)) {
+        let hashtagId = tagIds.get(tag)
+        if (!hashtagId) {
+          const existing = await tx.select({ id: hashtags.id }).from(hashtags).where(eq(hashtags.tag, tag)).limit(1)
+          hashtagId = existing[0]?.id
+          if (!hashtagId) {
+            const inserted = await tx.insert(hashtags).values({ tag }).returning()
+            hashtagId = inserted[0]?.id
+          }
+          if (!hashtagId) throw new Error(`Demo hashtag failed: ${tag}`)
+          tagIds.set(tag, hashtagId)
+        }
+        await tx.insert(postHashtags).values({ postId, hashtagId })
+      }
+      for (const username of mentionsIn(post.body)) {
+        const mentionedUserId = userIds.get(username)
+        if (!mentionedUserId || mentionedUserId === authorId) continue
+        await tx.insert(userMentions).values({ postId, mentionedUserId })
+      }
+    }
+
+    const commentIdsByPost = new Map<number, string[]>()
+    for (const comment of demoComments()) {
       const postId = postIds[comment.postIndex]
-      if (!authorId || !postId) continue
+      const authorId = userIds.get(comment.author)
+      if (!postId || !authorId) throw new Error('Demo comment is missing a post or author')
+      const siblings = commentIdsByPost.get(comment.postIndex) ?? []
+      const parentId = comment.parentSlot === null ? null : siblings[comment.parentSlot]
+      if (comment.parentSlot !== null && !parentId) throw new Error('Demo reply is missing its parent comment')
+      const post = plannedPosts[comment.postIndex]
       const inserted = await tx
         .insert(comments)
-        .values({ postId, authorId, body: comment.body })
+        .values({
+          postId,
+          authorId,
+          parentId,
+          body: comment.body,
+          createdAt: new Date(now.getTime() - (plannedPosts.length - comment.postIndex) * 60 * 60 * 1000 + siblings.length * 60 * 1000),
+        })
         .returning()
       const row = inserted[0]
-      if (!row) continue
-      commentCount += 1
+      if (!row) throw new Error('Demo comment insert failed')
+      if (post && comment.body.length > 1000) throw new Error('Demo comment exceeded the database limit')
+      siblings.push(row.id)
+      commentIdsByPost.set(comment.postIndex, siblings)
       await tx.insert(demoMarks).values({ batch: DEMO_BATCH, entityType: 'comment', entityId: row.id })
     }
 
-    for (let index = 0; index < demoPeople.length; index += 1) {
-      const follower = userIds.get(demoPeople[index]?.username ?? '')
-      const followee = userIds.get(demoPeople[(index + 1) % demoPeople.length]?.username ?? '')
-      if (!follower || !followee) continue
-      await tx.insert(follows).values({ followerId: follower, followeeId: followee })
-    }
-    for (let index = 0; index < 12; index += 1) {
-      const userId = userIds.get(demoPeople[(index + 2) % demoPeople.length]?.username ?? '')
-      const postId = postIds[index]
-      if (!userId || !postId) continue
+    for (const like of demoLikes()) {
+      const postId = postIds[like.postIndex]
+      const userId = userIds.get(demoPeople[like.userIndex]?.username ?? '')
+      if (!postId || !userId) throw new Error('Demo like is missing a post or user')
       await tx.insert(postLikes).values({ postId, userId })
     }
+    for (const repost of demoReposts()) {
+      const postId = postIds[repost.postIndex]
+      const userId = userIds.get(demoPeople[repost.userIndex]?.username ?? '')
+      if (!postId || !userId) throw new Error('Demo repost is missing a post or user')
+      await tx.insert(postReposts).values({ postId, userId })
+    }
+    for (const bookmark of demoBookmarks()) {
+      const postId = postIds[bookmark.postIndex]
+      const userId = userIds.get(demoPeople[bookmark.userIndex]?.username ?? '')
+      if (!postId || !userId) throw new Error('Demo bookmark is missing a post or user')
+      await tx.insert(postBookmarks).values({ postId, userId })
+    }
+    for (const follow of demoFollows()) {
+      const followerId = userIds.get(follow.follower)
+      const followeeId = userIds.get(follow.followee)
+      if (!followerId || !followeeId) throw new Error('Demo follow is missing a person')
+      await tx.insert(follows).values({ followerId, followeeId })
+    }
 
-    return {
-      seeded: true,
-      reason: 'inserted',
-      batch: DEMO_BATCH,
-      users: userIds.size,
-      posts: postIds.length,
-      communities: communityIds.size,
-      comments: commentCount,
+    for (const [index, post] of plannedPosts.entries()) {
+      if (!post.poll) continue
+      const postId = postIds[index]
+      if (!postId) throw new Error('Demo poll is missing a post')
+      const closesAt =
+        post.poll.closesInDays < 0
+          ? new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          : new Date(now.getTime() + post.poll.closesInDays * 24 * 60 * 60 * 1000)
+      await tx.insert(polls).values({ postId, closesAt })
+      const optionIds: string[] = []
+      for (const [position, label] of post.poll.options.entries()) {
+        const inserted = await tx.insert(pollOptions).values({ postId, label, position }).returning()
+        const option = inserted[0]
+        if (!option) throw new Error('Demo poll option insert failed')
+        optionIds.push(option.id)
+      }
+      for (const vote of demoVotes().filter((item) => item.postIndex === index)) {
+        const userId = userIds.get(demoPeople[vote.userIndex]?.username ?? '')
+        const optionId = optionIds[vote.optionIndex]
+        if (!userId || !optionId) throw new Error('Demo vote is missing a user or option')
+        await tx.insert(pollVotes).values({
+          postId,
+          userId,
+          optionId,
+          createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+        })
+      }
     }
   })
-  return summary
+  return { seeded: true, reason: 'inserted', ...(await countSocialDemo(db)) }
 }
 
 async function deleteMarked(
@@ -229,6 +396,7 @@ async function deleteMarked(
 }
 
 export async function cleanupSocialDemo(db: Database, batch = DEMO_BATCH) {
+  const tags = [...new Set(demoPosts().flatMap((post) => tagsIn(post.body)))]
   return db.transaction(async (tx) => {
     const marks = await tx.select().from(demoMarks).where(eq(demoMarks.batch, batch))
     const ids = (type: 'user' | 'post' | 'community' | 'comment') =>
@@ -237,16 +405,17 @@ export async function cleanupSocialDemo(db: Database, batch = DEMO_BATCH) {
     const postsRemoved = await deleteMarked(tx, posts, ids('post'))
     const communitiesRemoved = await deleteMarked(tx, communities, ids('community'))
     const usersRemoved = await deleteMarked(tx, users, ids('user'))
-    if (marks.length > 0) {
-      await tx.delete(demoMarks).where(eq(demoMarks.batch, batch))
+    if (tags.length > 0) {
+      await tx
+        .delete(hashtags)
+        .where(
+          and(
+            inArray(hashtags.tag, tags),
+            sql`not exists (select 1 from post_hashtags where post_hashtags.hashtag_id = ${hashtags.id})`,
+          ),
+        )
     }
-    return {
-      batch,
-      marks: marks.length,
-      comments: commentsRemoved,
-      posts: postsRemoved,
-      communities: communitiesRemoved,
-      users: usersRemoved,
-    }
+    if (marks.length > 0) await tx.delete(demoMarks).where(eq(demoMarks.batch, batch))
+    return { batch, marks: marks.length, comments: commentsRemoved, posts: postsRemoved, communities: communitiesRemoved, users: usersRemoved }
   })
 }

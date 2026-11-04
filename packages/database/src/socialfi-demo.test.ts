@@ -1,9 +1,9 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
-import { demoPosts } from '../seeds/socialfi-demo-content'
+import { assertDemoFixture, demoPlan, demoPosts } from '../seeds/socialfi-demo-content'
 import { createDatabase, migrateDatabase } from './client'
-import { posts, profiles, users } from './schema'
-import { assertDemoSeedAllowed, cleanupSocialDemo, seedSocialDemo } from './socialfi-demo'
+import { postLikes, posts, profiles, users } from './schema'
+import { assertDemoSeedAllowed, cleanupSocialDemo, countSocialDemo, seedSocialDemo } from './socialfi-demo'
 
 describe('social demo seed guards', () => {
   it('refuses production unless the confirm flag is explicit', () => {
@@ -41,12 +41,24 @@ describe('social demo seed guards', () => {
     ).not.toThrow()
   })
 
-  it('builds one hundred distinct demo posts', () => {
+  it('builds one hundred twenty distinct demo posts and the related plan', () => {
+    assertDemoFixture()
+    const plan = demoPlan()
     const bodies = demoPosts().map((post) => post.body)
-    expect(bodies).toHaveLength(100)
-    expect(new Set(bodies).size).toBe(100)
-    expect(bodies.join('\n')).not.toMatch(/staking|yield|airdrop|token price/i)
-    expect(bodies.every((body) => body.includes('Demo note'))).toBe(true)
+    expect(bodies).toHaveLength(120)
+    expect(new Set(bodies).size).toBe(120)
+    expect(plan.users).toBeGreaterThanOrEqual(25)
+    expect(plan.comments).toBeGreaterThanOrEqual(300)
+    expect(plan.likes).toBe(200)
+    expect(plan.reposts).toBe(80)
+    expect(plan.bookmarks).toBe(40)
+    expect(plan.follows).toBe(60)
+    expect(plan.communities).toBe(10)
+    expect(plan.memberships).toBe(30)
+    expect(plan.polls).toBe(10)
+    expect(plan.votes).toBe(30)
+    expect(plan.hashtags).toBeGreaterThanOrEqual(15)
+    expect(bodies.join('\n')).not.toMatch(/airdrop|token price|yield|staking/)
   })
 })
 
@@ -88,10 +100,29 @@ describe('social demo seed data', () => {
 
     const first = await seedSocialDemo(runtime.db)
     expect(first.seeded).toBe(true)
-    expect(first.posts).toBe(100)
+    expect(first.posts).toBe(120)
+    expect(first.users).toBeGreaterThanOrEqual(25)
+    expect(first.comments).toBeGreaterThanOrEqual(300)
+    expect(first.likes).toBe(200)
+    expect(first.reposts).toBe(80)
+    expect(first.bookmarks).toBe(40)
+    expect(first.follows).toBe(60)
+    expect(first.communities).toBe(10)
+    expect(first.memberships).toBe(30)
+    expect(first.polls).toBe(10)
+    expect(first.votes).toBe(30)
+    const counted = await countSocialDemo(runtime.db)
+    expect(counted.posts).toBe(120)
+    expect(counted.likes).toBe(200)
+    const spread = await runtime.db
+      .select({ likes: sql<number>`count(*)::int` })
+      .from(postLikes)
+      .groupBy(postLikes.postId)
+    const likeTotals = spread.map((row) => Number(row.likes))
+    expect(Math.max(...likeTotals)).toBeGreaterThan(Math.min(...likeTotals))
     const second = await seedSocialDemo(runtime.db)
     expect(second.seeded).toBe(false)
-    expect(second.posts).toBe(100)
+    expect(second.posts).toBe(120)
 
     const demoNames = await runtime.db
       .select({ username: profiles.username })
@@ -101,7 +132,7 @@ describe('social demo seed data', () => {
 
     const removed = await cleanupSocialDemo(runtime.db)
     expect(removed.users).toBeGreaterThan(0)
-    expect(removed.posts).toBe(100)
+    expect(removed.posts).toBe(120)
     const demoLeft = await runtime.db.select().from(profiles).where(eq(profiles.username, 'mira_ell'))
     expect(demoLeft).toHaveLength(0)
     const realLeft = await runtime.db.select().from(posts).where(eq(posts.authorId, survivorId))
