@@ -57,6 +57,19 @@ export async function readOutbox(directory: string): Promise<OutboxRecord[]> {
   return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
+export function createLinkSender(): EmailSender {
+  return {
+    async send(message) {
+      return {
+        delivered: false,
+        transport: 'smtp',
+        messageId: null,
+        reason: `Email delivery is not configured. ${message.text}`,
+      }
+    },
+  }
+}
+
 export function createSmtpSender(options: {
   host: string
   port: number

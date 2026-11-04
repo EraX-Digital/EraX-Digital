@@ -8,7 +8,7 @@ export type SqlExecutor = {
   query(sql: string): Promise<{ rows: Array<Record<string, unknown>> }>
 }
 
-const migrationsDirectory = fileURLToPath(new URL('../migrations', import.meta.url))
+const migrationsDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../migrations')
 
 function checksum(sql: string): string {
   return createHash('sha256').update(sql).digest('hex')

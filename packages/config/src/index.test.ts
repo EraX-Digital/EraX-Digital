@@ -73,4 +73,26 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...production, DATABASE_DRIVER: 'pglite' })).toThrow(/PostgreSQL/)
     expect(() => parseEnv({ ...production, RATE_LIMIT_STORE: 'memory' })).toThrow(/Valkey/)
   })
+
+  it('accepts the Vercel runtime without Valkey, SMTP, or object storage', () => {
+    const env = parseEnv({
+      NODE_ENV: 'production',
+      ERAX_RUNTIME: 'vercel',
+      DATABASE_DRIVER: 'postgres',
+      DATABASE_URL: 'postgres://erax:secret@ep-example.neon.tech/erax?sslmode=require',
+      DATABASE_SSL: 'require',
+      RATE_LIMIT_STORE: 'memory',
+      EMAIL_MODE: 'link',
+      MEDIA_DRIVER: 'none',
+      COOKIE_SECURE: 'true',
+      WEB_ORIGIN: 'https://erax-digital.vercel.app',
+      ADMIN_ORIGIN: 'https://erax-digital.vercel.app',
+      API_PUBLIC_ORIGIN: 'https://erax-digital.vercel.app',
+      ENABLE_API_DOCS: 'false',
+      SESSION_COOKIE_SECRET: 'test-secret-that-is-at-least-32-characters',
+    })
+    expect(env.ERAX_RUNTIME).toBe('vercel')
+    expect(env.EMAIL_MODE).toBe('link')
+    expect(env.MEDIA_DRIVER).toBe('none')
+  })
 })

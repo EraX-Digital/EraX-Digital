@@ -18,10 +18,15 @@ export type StoredObject = {
 }
 
 export type MediaStorage = {
-  driver: 'filesystem' | 's3'
+  driver: 'filesystem' | 's3' | 'none'
   put(key: string, bytes: Buffer): Promise<void>
   read(key: string): Promise<StoredObject | null>
   remove(key: string): Promise<void>
+}
+
+export function createUnavailableStorage(): MediaStorage {
+  const fail = () => Promise.reject(new Error('Media storage is not configured on this deployment'))
+  return { driver: 'none', put: fail, read: () => Promise.resolve(null), remove: fail }
 }
 
 export function assertMediaKey(key: string): void {

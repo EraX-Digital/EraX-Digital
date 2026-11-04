@@ -5,6 +5,23 @@ import { Alert, BrandMark, Button, Note, TextField } from '@erax/ui'
 import { useState } from 'react'
 import { api } from '../../lib/api'
 
+function MessageText({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g)
+  return (
+    <p>
+      {parts.map((part, index) =>
+        part.startsWith('http') ? (
+          <a key={`${part}-${index}`} href={part}>
+            {part}
+          </a>
+        ) : (
+          <span key={`${part}-${index}`}>{part}</span>
+        ),
+      )}
+    </p>
+  )
+}
+
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -74,6 +91,8 @@ export default function RegisterPage() {
             required
             minLength={3}
             maxLength={20}
+            pattern="[a-z0-9_]{3,20}"
+            title="3-20 characters: lowercase letters, numbers, or underscores. An email address is not a username."
           />
           <TextField
             label="Display name"
@@ -89,8 +108,13 @@ export default function RegisterPage() {
             required
             minLength={12}
           />
+          <p className="erax-muted">Username: 3–20 characters, using lowercase letters, numbers, or underscores.</p>
           {error ? <Alert>{error}</Alert> : null}
-          {delivery ? <Note>{delivery}</Note> : null}
+          {delivery ? (
+            <Note>
+              <MessageText text={delivery} />
+            </Note>
+          ) : null}
           <Button type="submit" disabled={pending}>
             {pending ? 'Creating account…' : 'Create account'}
           </Button>

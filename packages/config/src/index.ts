@@ -2,7 +2,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 
-export const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
+export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 
 export function resolveRepoPath(value: string): string {
   return path.isAbsolute(value) ? value : path.resolve(repoRoot, value)
@@ -45,14 +45,15 @@ const schema = z
       .default('false')
       .transform((value) => value === 'true'),
     ERAX_AUTO_MIGRATE: z.enum(['true', 'false']).optional(),
-    EMAIL_MODE: z.enum(['outbox', 'smtp']),
+    EMAIL_MODE: z.enum(['outbox', 'smtp', 'link']),
+    ERAX_RUNTIME: z.enum(['standalone', 'vercel']).default('standalone'),
     EMAIL_OUTBOX_DIR: z.string().min(1).default('./var/outbox'),
     SMTP_HOST: z.string().optional().default(''),
     SMTP_PORT: z.coerce.number().int().positive().default(1025),
     SMTP_FROM: z.string().min(1).default('EraX <no-reply@localhost>'),
     SMTP_USER: z.string().optional().default(''),
     SMTP_PASSWORD: z.string().optional().default(''),
-    MEDIA_DRIVER: z.enum(['filesystem', 's3']).default('filesystem'),
+    MEDIA_DRIVER: z.enum(['filesystem', 's3', 'none']).default('filesystem'),
     MEDIA_ROOT: z.string().min(1).default('./var/media'),
     S3_ENDPOINT: z.string().optional().default(''),
     S3_REGION: z.string().optional().default(''),
@@ -187,6 +188,7 @@ const schema = z
     }
 
     if (value.NODE_ENV === 'production') {
+      const vercelRuntime = value.ERAX_RUNTIME === 'vercel'
       if (value.DATABASE_DRIVER !== 'postgres') {
         context.addIssue({
           code: z.ZodIssueCode.custom,
@@ -208,21 +210,21 @@ const schema = z
           message: 'Production DATABASE_URL must not use a local development database',
         })
       }
-      if (value.RATE_LIMIT_STORE !== 'valkey') {
+      if (!vercelRuntime && value.RATE_LIMIT_STORE !== 'valkey') {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['RATE_LIMIT_STORE'],
           message: 'Production requires Valkey. The in-process rate limiter is development-only.',
         })
       }
-      if (/localhost|127\.0\.0\.1/i.test(value.VALKEY_URL)) {
+      if (value.RATE_LIMIT_STORE === 'valkey' && /localhost|127\.0\.0\.1/i.test(value.VALKEY_URL)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['VALKEY_URL'],
           message: 'Production VALKEY_URL must not point at localhost',
         })
       }
-      if (value.EMAIL_MODE !== 'smtp') {
+      if (!vercelRuntime && value.EMAIL_MODE !== 'smtp') {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['EMAIL_MODE'],
@@ -230,9 +232,16 @@ const schema = z
             'Production requires SMTP email delivery. The development outbox is not a mail server.',
         })
       }
+      if (vercelRuntime && value.EMAIL_MODE === 'outbox') {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['EMAIL_MODE'],
+          message: 'The Vercel runtime cannot use the development outbox.',
+        })
+      }
       if (
-        /localhost|127\.0\.0\.1/i.test(value.SMTP_HOST) ||
-        value.SMTP_FROM.includes('localhost')
+        value.EMAIL_MODE === 'smtp' &&
+        (/localhost|127\.0\.0\.1/i.test(value.SMTP_HOST) || value.SMTP_FROM.includes('localhost'))
       ) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
@@ -247,12 +256,19 @@ const schema = z
           message: 'Production cookies must be marked secure',
         })
       }
-      if (value.MEDIA_DRIVER !== 's3') {
+      if (!vercelRuntime && value.MEDIA_DRIVER !== 's3') {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['MEDIA_DRIVER'],
           message:
             'Production media must use S3-compatible object storage. Local disk is ephemeral.',
+        })
+      }
+      if (vercelRuntime && value.MEDIA_DRIVER === 'filesystem') {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['MEDIA_DRIVER'],
+          message: 'The Vercel runtime cannot store media on local disk.',
         })
       }
       if (value.ENABLE_API_DOCS) {

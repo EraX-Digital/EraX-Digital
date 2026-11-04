@@ -189,9 +189,16 @@ export async function buildServer(deps: ServerDeps) {
     if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(request.method)) return
     if (!request.url.startsWith('/api/')) return
     const origin = request.headers.origin
-    if (!origin || !allowedOrigins.has(origin)) {
-      throw new ApiError(403, 'origin_rejected', 'Origin is not allowed')
+    if (origin && allowedOrigins.has(origin)) return
+    const host = request.headers.host
+    if (origin && host) {
+      try {
+        if (new URL(origin).host === host) return
+      } catch {
+        // The origin header is not a URL. Reject it below.
+      }
     }
+    throw new ApiError(403, 'origin_rejected', 'Origin is not allowed')
   })
 
   const cookieBase = {
