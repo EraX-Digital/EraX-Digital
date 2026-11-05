@@ -1,13 +1,13 @@
 :root {
   color-scheme: dark;
-  --bg: #111111;
-  --bg-2: #161616;
-  --ink: #ffffff;
-  --muted: rgba(255, 255, 255, 0.62);
-  --line: rgba(255, 255, 255, 0.16);
-  --gold: #fa4c14;
-  --gold-2: #ff6a3d;
-  --teal: #fa4c14;
+  --bg: #071018;
+  --bg-2: #10192e;
+  --ink: #f6f0e4;
+  --muted: #c5c0b4;
+  --line: rgba(228, 208, 164, 0.28);
+  --gold: #c6a36a;
+  --gold-2: #e4d0a4;
+  --teal: #c6a36a;
   --danger: #ffb4a8;
   --ok: #b7ebc6;
   --shadow: none;
@@ -27,14 +27,14 @@ body {
 }
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f4f4f4;
-  --bg-2: #ffffff;
-  --ink: #111111;
-  --muted: rgba(17, 17, 17, 0.62);
-  --line: rgba(17, 17, 17, 0.16);
-  --gold: #fa4c14;
-  --gold-2: #c7370c;
-  --teal: #fa4c14;
+  --bg: #f6f0e4;
+  --bg-2: #fffaf3;
+  --ink: #071018;
+  --muted: rgba(7, 16, 24, 0.62);
+  --line: rgba(198, 163, 106, 0.45);
+  --gold: #8a6840;
+  --gold-2: #c6a36a;
+  --teal: #8a6840;
   --danger: #8c2f23;
   --ok: #1d6b3a;
   --shadow: none;
@@ -79,10 +79,11 @@ textarea {
   color: inherit;
 }
 .erax-brand strong {
-  font-family: var(--sans);
-  font-size: 22px;
+  font-family: var(--serif);
+  font-size: 28px;
   letter-spacing: -0.03em;
   font-weight: 600;
+  line-height: 1;
 }
 .erax-brand span {
   color: var(--gold);
@@ -94,24 +95,22 @@ textarea {
 .erax-company-logo {
   display: inline-flex;
   align-items: center;
+  color: var(--ink);
   line-height: 0;
   text-decoration: none;
 }
-.erax-company-logo img {
-  height: 36px;
+.erax-company-logo svg {
+  height: 52px;
   width: auto;
   display: block;
 }
-.erax-company-logo:hover img {
+.erax-company-logo:hover {
   opacity: 0.82;
-}
-:root[data-theme='light'] .erax-company-logo img {
-  filter: invert(1);
 }
 .erax-nav a,
 .erax-side-nav a,
 .erax-bottom-nav a {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 14px;
 }
 .erax-nav {
@@ -137,7 +136,14 @@ textarea {
   font-size: clamp(56px, 8vw, 96px);
   line-height: 0.92;
   margin: 0;
-  font-weight: 400;
+  font-weight: 500;
+  background-image: linear-gradient(90deg, #c6a36a, #f7f1e4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+:root[data-theme='light'] .erax-hero h1 {
+  background-image: linear-gradient(90deg, #8a6840, #071018);
 }
 .erax-hero p.lede {
   max-width: 640px;
@@ -155,14 +161,14 @@ textarea {
 .erax-composer {
   background-color: var(--bg-2);
   background-image:
-    linear-gradient(var(--ink), var(--ink)) left top / 14px 1px no-repeat,
-    linear-gradient(var(--ink), var(--ink)) left top / 1px 14px no-repeat,
-    linear-gradient(var(--ink), var(--ink)) right top / 14px 1px no-repeat,
-    linear-gradient(var(--ink), var(--ink)) right top / 1px 14px no-repeat,
-    linear-gradient(var(--ink), var(--ink)) left bottom / 14px 1px no-repeat,
-    linear-gradient(var(--ink), var(--ink)) left bottom / 1px 14px no-repeat,
-    linear-gradient(var(--ink), var(--ink)) right bottom / 14px 1px no-repeat,
-    linear-gradient(var(--ink), var(--ink)) right bottom / 1px 14px no-repeat;
+    linear-gradient(var(--gold-2), var(--gold-2)) left top / 14px 1px no-repeat,
+    linear-gradient(var(--gold-2), var(--gold-2)) left top / 1px 14px no-repeat,
+    linear-gradient(var(--gold-2), var(--gold-2)) right top / 14px 1px no-repeat,
+    linear-gradient(var(--gold-2), var(--gold-2)) right top / 1px 14px no-repeat,
+    linear-gradient(var(--gold-2), var(--gold-2)) left bottom / 14px 1px no-repeat,
+    linear-gradient(var(--gold-2), var(--gold-2)) left bottom / 1px 14px no-repeat,
+    linear-gradient(var(--gold-2), var(--gold-2)) right bottom / 14px 1px no-repeat,
+    linear-gradient(var(--gold-2), var(--gold-2)) right bottom / 1px 14px no-repeat;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: none;
@@ -230,15 +236,16 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 13px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .erax-button {
-  background: var(--gold);
-  color: #ffffff;
-  font-weight: 500;
+  background: linear-gradient(180deg, #ead9b4, #b8924e);
+  color: #1c150c;
+  border-color: rgba(246, 240, 228, 0.45);
+  font-weight: 600;
 }
 .erax-button:hover {
   filter: brightness(1.06);
@@ -247,7 +254,7 @@ textarea {
 .erax-side-nav a:hover,
 .erax-engage button:hover,
 .erax-engage a:hover {
-  background: rgba(250, 76, 20, 0.12);
+  background: rgba(198, 163, 106, 0.14);
 }
 .erax-button-secondary {
   background: transparent;
@@ -338,7 +345,7 @@ textarea {
   justify-content: space-between;
   min-height: 40px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: 0;
 }
 .erax-side-nav a[aria-current='page'] {
   background: transparent;
@@ -471,7 +478,7 @@ textarea {
 .erax-badge {
   margin-left: 8px;
   background: var(--gold);
-  color: #ffffff;
+  color: #1c150c;
   border-radius: 0;
   padding: 0 6px;
   font-size: 12px;
@@ -586,14 +593,14 @@ textarea {
   border: 1px solid var(--line);
   background: transparent;
   cursor: pointer;
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .erax-theme button[aria-pressed='true'] {
-  background: var(--gold);
-  color: #ffffff;
+  background: linear-gradient(180deg, #ead9b4, #b8924e);
+  color: #1c150c;
 }
 .erax-footer {
   padding: 28px 0 48px;

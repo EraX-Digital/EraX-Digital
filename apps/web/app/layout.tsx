@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { Golos_Text, JetBrains_Mono, Playfair_Display } from 'next/font/google'
+import { Cormorant_Garamond, JetBrains_Mono, Manrope } from 'next/font/google'
 import '@erax/ui/styles.css'
 
-const sans = Golos_Text({ subsets: ['latin'], variable: '--font-sans' })
-const serif = Playfair_Display({ subsets: ['latin'], variable: '--font-serif' })
+const sans = Manrope({ subsets: ['latin'], variable: '--font-sans' })
+const serif = Cormorant_Garamond({ subsets: ['latin'], weight: ['500', '600'], variable: '--font-serif' })
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
