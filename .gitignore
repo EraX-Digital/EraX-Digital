@@ -23,3 +23,6 @@ contracts/evm/lib
 contracts/solana/target
 contracts/solana/keypairs
 contracts/solana/.anchor
+
+.vercel
+.env*

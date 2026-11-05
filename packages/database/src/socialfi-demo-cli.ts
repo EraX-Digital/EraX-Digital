@@ -31,7 +31,7 @@ assertDemoSeedAllowed({
 })
 
 const runtime = await createDatabase(env)
-await migrateDatabase(runtime)
+if (!process.argv.includes('--skip-migrate')) await migrateDatabase(runtime)
 const result = process.argv.includes('--cleanup')
   ? await cleanupSocialDemo(runtime.db)
   : process.argv.includes('--count')
